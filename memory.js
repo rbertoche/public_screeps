@@ -63,6 +63,10 @@ function unpack(value){
         }
         return ret;
     } else if ( typeof value === 'object' ){
+        if (!value){
+            console.log('unpack should not be called on null objects');
+            return null;
+        }
         if (value.id !== undefined){
             console.log('unpack should not be called on GameObject snapshot objects');
             return null;

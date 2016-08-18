@@ -10,6 +10,7 @@ var container_of_source,
     source_container;
 var damaged, damaged_down, damaged_half, stock;
 var recharger_energy, recharger_tower_energy;
+var wanted, offered;
 
 const default_path_opts = {
     ignoreCreeps: false,
@@ -266,17 +267,19 @@ function pickup(creep){
     return -1;
 }
 
+function procure_filter(s){
+    return s && (s.energy || s.store[RESOURCE_ENERGY]) - (wanted[s.id] || 0) > 50;
+}
+
 function procure(creep){
     if (has(creep, CARRY)){
         var targets = [];
         var stock_ = [], energy, source_container_, source_container__;
         if (creep.memory.role === 'worker' || (creep.memory.role === 'carrier' &&
                     creep.room.energyAvailable < .8 * creep.room.energyCapacityAvailable )){
-            stock_ = stock.filter((s) => {
-                return s && s.store[RESOURCE_ENERGY] > creep.carryCapacity;
-            });
+            stock_ = stock.filter(procure_filter);
         }
-        source_container_ = source_container.filter(e => e.store[RESOURCE_ENERGY] >= creep.carryCapacity);
+        source_container_ = source_container.filter(procure_filter);
         var storage = source_container_.filter(s => s.structureType == STRUCTURE_STORAGE);
         storage = storage.length && storage[0];
         if (source_container_.length > 1 && storage){
@@ -284,12 +287,15 @@ function procure(creep){
         }
         
         energy = find(FIND_DROPPED_ENERGY, {
-            filter: (e) => { return e.energy > 30; }
+            filter: procure_filter
         });
         targets = targets.concat(energy, source_container_, stock_)
         var target = creep.pos.findClosestByRange(targets);
         if (!target && targets.length){
             target = targets[0];
+        }
+        if (target){
+            wanted[target.id] = (wanted[target.id] || 0) + (creep.carryCapacity - creep.carry[RESOURCE_ENERGY]);
         }
         
         if (!creep.pos.isNearTo(target)){
@@ -329,12 +335,17 @@ function upgrade(creep, lvl)
 }
 
 function fight(creep){
+
+    var targetRoom = 'W38S59';
+    var roomPath = [targetRoom]
+    /*
     var targetRoom = 'W36S57';
     var roomPath = ['W38S59',
                     'W37S59',
                     'W37S58',
                     'W37S57',
                     targetRoom]
+                    */
     /*
     var targetRoom = 'W39S56';
     var roomPath = ['W40S59',
@@ -344,7 +355,6 @@ function fight(creep){
                     targetRoom]
                     */
     var pos = new RoomPosition(25, 25, targetRoom)
-    console.log(creep.pos)
     
     if (creep.pos.roomName !== targetRoom){
         var index = roomPath.indexOf(creep.pos.roomName)
@@ -450,6 +460,8 @@ function find(type, opts){
 module.exports.loop = function () {
     
     recharger_energy = 0;
+    wanted = {};
+    offered = {};
     recharger_tower_energy = {};
     damaged = Object.keys(Game.structures).map(key => Game.structures[key])
     var neutral = find(FIND_STRUCTURES);
@@ -477,7 +489,12 @@ module.exports.loop = function () {
         source_taken = {}
         Memory.source_taken = source_taken;
     } else {
-        source_taken = _.filter(source_taken, s => s);
+        var keys = Object.keys(source_taken);
+        for (var key in keys){
+            if (source_taken[key] == null){
+                delete source_taken[key];
+            }
+        }
         memory.set(Memory,'source_taken', source_taken);
     }
     container_of_source = {};
