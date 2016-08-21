@@ -802,7 +802,7 @@ module.exports.loop = function () {
                  [WORK,WORK,WORK,WORK,WORK,MOVE,MOVE,CARRY],
                  [WORK,WORK,WORK,WORK,WORK,MOVE,MOVE,MOVE,CARRY],
         ]);
-    } else if (carriers < 5){
+    } else if (carriers < 7){
         role = 'c'
         ret = creep_.create('carrier',
                 [[CARRY,CARRY,MOVE],
@@ -811,7 +811,7 @@ module.exports.loop = function () {
                  [CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE],
                  [CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE],
         ]);
-    } else if (workers < 4){
+    } else if (workers < 5){
         role = 'w'
         ret = creep_.create('worker',
                 [[WORK,WORK,CARRY,MOVE],
