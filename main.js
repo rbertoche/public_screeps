@@ -1,37 +1,29 @@
 
 memory = require('memory')
+find = require('find')
+healer = require('healer')
+claimer = require('claimer')
+creep_ = require('creep')
 
 STATE_NULL = '';
 STATE_DELIVERING = 'delivering';
 STATE_COLLECTING = 'collecting';
 
 var container_of_source,
-    source_taken,
+    source_work_count,
+    maintenance_count,
     source_container;
 var damaged, damaged_down, damaged_half, stock;
 var recharger_energy, recharger_tower_energy;
+var spawn_filled;
 var wanted, offered;
+var nearFlag;
 
 const default_path_opts = {
     ignoreCreeps: false,
     maxOps: 1000,
     serializePath: true,
 }
-
-function has(creep, part){
-    var ret;
-    if (creep.memory.has === undefined){
-        creep.memory.has = {};
-    }
-    if (creep.memory.has[part] === undefined){
-        ret = creep.body.filter(p => p.type === part).length;
-        creep.memory.has[part] = ret;
-    } else {
-        ret = creep.memory.has[part];
-    }
-    return ret;
-}
-
 
 function get_site(creep, filter){
     var sites = _.filter(Game.constructionSites, filter);
@@ -61,26 +53,7 @@ function get_damaged_down(creep){
     return ret || damaged_down.length && damaged_down[0];
 }
 
-function create(role, bodies){
-    var costs = bodies.map((body) => { return _.sum(body.map((part) => { return BODYPART_COST[part]; })); });
-    var body;
-    var spawn = Game.spawns.Spawn1;
-    for (var i=costs.length - 1; i >= 0; i--){
-        if (costs[i] <= spawn.room.energyAvailable){
-            body = bodies[i];
-            break;
-        }
-    }
-    if (body){
-        console.log('spawning ' + body)
-        var name = spawn.createCreep(body);
-        Memory.creeps[name] = { role:role };
-        return;
-    }
-    return -1;
-}
-
-function repair(creep){
+function repair_near(creep){
     if (creep.memory.role === 'worker'){
         var damaged_ = get_near_damaged(creep);
         if (damaged_){
@@ -92,58 +65,81 @@ function repair(creep){
 }
 
 function goto_damaged(creep){
-    if (creep.memory.role === 'worker'){
+    if (creep.memory.role === 'worker' && maintenance_count < 2){
         var damaged_down_ = get_damaged_down(creep);
         if (damaged_down_){
             if (!creep.pos.isNearTo(damaged_down_)){
                 creep.moveTo(damaged_down_, default_path_opts)
             }
+            maintenance_count += 1;
             return;
         }
     }
     return -1;
 }
 
+
+function source_filter(creep){
+    return s => s && my_rooms(s) && ((source_work_count[s.id] || 0) + creep_.has(creep, WORK) <= 5);
+}
+
 function harvest(creep)
 {
     if (creep.memory.role === 'harvester'){
-        var source = find(FIND_SOURCES_ACTIVE, {
-            filter: s => s && !source_taken[s.id] || source_taken[s.id] == creep,
-        })
+        var source;
+        /*
+        var taken = _.filter(source_work_count, s => s === creep);
+        if (taken.length){
+            source = creep.pos.findClosestByPath(taken)  || taken.length && taken[0];
+        } else {
+
+        }
+        */
+        source = find(FIND_SOURCES, {
+                filter: source_filter(creep),
+            })
         source = creep.pos.findClosestByPath(source) || source.length && source[0];
         var target = source;
         var container = source && container_of_source[source.id];
+
         if (source){
             creep.harvest(source);
             if (!creep.pos.isNearTo(source)){
                 creep.moveTo(source, default_path_opts);
             } else if (container){
-                
                 var x = container.pos.x;
                 var y = container.pos.y;
-                var x_ = ((x + source.pos.x) / 2)
+                var x_ = ((x + source.pos.x) / 2) - .5
                 x = x_.toFixed()
-                var y_ = ((y + source.pos.y) / 2)
-                y = y_.toFixed();
+                var y_ = ((y + source.pos.y) / 2) - .5
+                y = y_.toFixed()
+
                 var pos = creep.room.getPositionAt(x,y);
                 if (creep.room.getPositionAt(x,y).lookFor(LOOK_TERRAIN)[0] === 'wall'){
-                    if (y !== y_){
-                        y -= 1;
-                    } else if (x !== x_){
-                        x -= 1;
+                    if (x == source.pos.x){
+                        x = container.pos.x;
+                    } else if (y == source.pos.y){
+                        y = container.pos.y;
+                    } else if (x == container.pos.x){
+                        x = source.pos.x;
+                    } else if (y == container.pos.y){
+                        y = source.pos.y;
                     }
                 }
                 pos = creep.room.getPositionAt(x,y);
                 if (!creep.pos.isEqualTo(pos)){
-                    creep.moveTo(pos, default_path_opts)
+                    creep.moveTo(pos, default_path_opts);
                 } else {
-                    creep.transfer(container, RESOURCE_ENERGY)
+                    creep.transfer(container, RESOURCE_ENERGY);
                 }
             }
-            Memory.source_taken[source.id] = creep.id;
+            source_work_count[source.id] = (source_work_count[source.id] || 0) + creep_.has(creep, WORK);
             return;
-        } else if (creep.room !== Game.rooms['W38S59']){
+        } else if (Game.rooms['W38S59'] === undefined){
             creep.moveTo(new RoomPosition(2,21, 'W38S59', default_path_opts));
+            return
+        } else if (Game.rooms['W37S59'] === undefined){
+            creep.moveTo(new RoomPosition(2,13, 'W37S59', default_path_opts));
             return
             
         } else {
@@ -174,6 +170,7 @@ function goto_site(creep, filter){
             if(!creep.pos.isNearTo(site)){
                 creep.moveTo(site, default_path_opts);
             }
+            maintenance_count += 1;
             return;
         }
     }
@@ -181,29 +178,39 @@ function goto_site(creep, filter){
 }
 
 function has_space(s){
-    return s && s.store[RESOURCE_ENERGY] < s.storeCapacity;
+    return s && s.store[RESOURCE_ENERGY] + (offered[s.id] || 0) - (wanted[s.id] || 0) < s.storeCapacity;
 }
 
-function deposit(creep)
+function stock_filter(to_storage){
+    return s => has_space(s) && (!s.pos.findInRange(FIND_SOURCES, 2).length ||
+                                        (to_storage && s.structureType === STRUCTURE_STORAGE))
+}
+
+function deposit(creep, to_storage)
 {
-    if (has(creep, CARRY)){
+    if (creep_.has(creep, CARRY)){
+        if(!spawn_filled){
+            console.log('oops, spawn not filled ' + creep.name)
+            return -1
+        }
+
         var stock_ = creep.memory.stock !== undefined && memory.get(creep.memory, 'stock');
-        if (creep.memory.stock === undefined || !has_space(stock_)){
-            stock_ = stock.filter(has_space);
-            stock_ = stock_.filter(s => !s.pos.findInRange(FIND_SOURCES, 2).length);
-            var stock__ = creep.pos.findClosestByRange(stock_);
-            if (!stock__ && stock_){
-                stock__ = stock_[0];
-            }
-            memory.set(creep.memory, 'stock', stock__);
+        if (creep.memory.stock === undefined || !stock_filter(to_storage)(stock_)){
+            stock_ = stock.filter(stock_filter(to_storage));
+            //if (!to_storage){
+            stock_ = stock_.filter(s => creep.memory.energy_from !== s.id);
+            //}
+            stock_ = creep.pos.findClosestByRange(stock_) || (stock_.length && stock_[0]);
+            memory.set(creep.memory, 'stock', stock_);
         }
         if (stock_){
             if (!creep.pos.isNearTo(stock_)){
-                creep.moveTo(stock_, default_path_opts);
+                creep.moveTo(stock_, default_path_opts)
             } else {
                 creep.memory.stock_done = true;
             }
             creep.transfer(stock_, RESOURCE_ENERGY);
+            offered[stock_.id] = (offered[stock_.id] || 0) + creep.carry[RESOURCE_ENERGY];
             return;
         } else {
             delete creep.memory.stock;
@@ -212,20 +219,19 @@ function deposit(creep)
     return -1;
 }
 
-function get_available(creep){
-    var ret = _.filter(Game.structures, s => s.structureType !== STRUCTURE_TOWER && s.energy < s.energyCapacity );
-    return creep.pos.findClosestByRange(ret);
+// TODO: cache
+function get_structures(creep, type, filter){
+    return _.filter(Game.structures, s => (!type || s.structureType === type) && (filter === undefined || filter(s)) );
 }
-
-function get_tower(creep){
-    var ret = _.filter(Game.structures, s => s.structureType === STRUCTURE_TOWER && s.energy < s.energyCapacity );
-    return creep.pos.findClosestByRange(ret);
+function get_structure(creep, type, filter){
+    var ret = get_structures(creep, type, filter);
+    return creep.pos.findClosestByRange(ret) || (ret.length && ret[0]);
 }
 
 function recharge_tower(creep)
 {
-    if (has(creep, CARRY)){
-        var tower = get_tower(creep);
+    if (creep_.has(creep, CARRY)){
+        var tower = get_structure(creep, STRUCTURE_TOWER, s => s.energy < s.energyCapacity);
         if (tower && (recharger_tower_energy[tower.id] || 0) < (tower.energyCapacity - tower.energy)){
             if (!creep.pos.isNearTo(tower)){
                 creep.moveTo(tower, default_path_opts);
@@ -240,14 +246,20 @@ function recharge_tower(creep)
 
 function recharge(creep)
 {
-    if (has(creep, CARRY)){
+    if (creep_.has(creep, CARRY)){
         if (recharger_energy < (creep.room.energyCapacityAvailable - creep.room.energyAvailable)){
-            var spawn = get_available(creep);
+            var spawn = get_structure(creep, null, s => s.energy < s.energyCapacity && s.structureType !== STRUCTURE_TOWER &&
+                                        s.id !== '57b8a56ffabeea087e9872b5');
             if (spawn){
                 if (!creep.pos.isNearTo(spawn)){
                     creep.moveTo(spawn, default_path_opts);
                 }
-                recharger_energy += creep.carry[RESOURCE_ENERGY];
+                if (creep.pos.inRangeTo(spawn,6)){
+                    recharger_energy += creep.carry[RESOURCE_ENERGY];
+                    if (recharger_energy < (creep.room.energyCapacityAvailable - creep.room.energyAvailable)){
+                        spawn_filled = true;
+                    }
+                }
                 creep.transfer(spawn, RESOURCE_ENERGY);
                 return;
             }
@@ -257,7 +269,7 @@ function recharge(creep)
 }
 
 function pickup(creep){
-    if (has(creep, CARRY)){
+    if (creep_.has(creep, CARRY)){
         var energy = creep.pos.findInRange(FIND_DROPPED_ENERGY, 1);
         if (energy.length){
             creep.pickup(energy[0]);
@@ -268,28 +280,43 @@ function pickup(creep){
 }
 
 function procure_filter(s){
-    return s && (s.energy || s.store[RESOURCE_ENERGY]) - (wanted[s.id] || 0) > 50;
+    if (s.energy || s.store){
+        return s && (s.energy || s.store[RESOURCE_ENERGY]) + (offered[s.id] || 0) - (wanted[s.id] || 0) > 50;
+    } else {
+        console.log('Procure invalid value: ' + s)
+        return false
+    }
 }
 
 function procure(creep){
-    if (has(creep, CARRY)){
+    if (creep_.has(creep, CARRY)){
         var targets = [];
         var stock_ = [], energy, source_container_, source_container__;
         if (creep.memory.role === 'worker' || (creep.memory.role === 'carrier' &&
-                    creep.room.energyAvailable < .8 * creep.room.energyCapacityAvailable )){
+                    !spawn_filled )){
             stock_ = stock.filter(procure_filter);
         }
         source_container_ = source_container.filter(procure_filter);
-        var storage = source_container_.filter(s => s.structureType == STRUCTURE_STORAGE);
+        var storage = source_container_.filter(s => s.structureType === STRUCTURE_STORAGE);
         storage = storage.length && storage[0];
-        if (source_container_.length > 1 && storage){
-            source_container_.splice(source_container_.indexOf(storage), 1);
-        }
-        
         energy = find(FIND_DROPPED_ENERGY, {
             filter: procure_filter
         });
-        targets = targets.concat(energy, source_container_, stock_)
+        targets = targets.concat(energy, stock_, source_container_)
+        if (creep.memory.role === 'carrier' && targets.length > 1 && storage && spawn_filled){
+            targets.splice(targets.indexOf(storage), 1);
+        }
+
+        if (creep.memory.role === 'worker'){
+            var link = get_structure(creep, STRUCTURE_LINK, s => s.energy);
+            if (link && procure_filter(link)){
+                if (creep.pos.inRangeTo(link,2)){
+                    targets = [link];
+                } else {
+                    targets.push(link);
+                }
+            }
+        }
         var target = creep.pos.findClosestByRange(targets);
         if (!target && targets.length){
             target = targets[0];
@@ -301,12 +328,17 @@ function procure(creep){
         if (!creep.pos.isNearTo(target)){
             creep.moveTo(target, default_path_opts)
         }
+        var ret;
         if (target instanceof Energy){
-            creep.pickup(target);
+            ret = creep.pickup(target);
+            target = target.pos
         } else if (target instanceof Structure){
-            creep.withdraw(target, RESOURCE_ENERGY);
+            ret = creep.withdraw(target, RESOURCE_ENERGY);
         } else {
-            console.log('error',target);
+            console.log('error',target, targets);
+        }
+        if (ret === OK){
+            creep.memory.energy_from = memory.pack(target);
         }
         return
     }
@@ -334,29 +366,52 @@ function upgrade(creep, lvl)
     return -1;
 }
 
+const attack_paths = {
+    W38S59: ['W38S59'],
+    W39S57: ['W40S59',
+             'W40S58',
+             'W39S58',
+             'W38S58',
+             'W38S57',
+             'W39S57'],
+    W36S57: ['W38S59',
+             'W37S59',
+             'W37S58',
+             'W37S57',
+             'W36S57'],
+    W39S56: ['W40S59',
+             'W40S58',
+             'W40S57',
+             'W40S56',
+             'W39S56'],
+}
+
 function fight(creep){
 
-    var targetRoom = 'W38S59';
-    var roomPath = [targetRoom]
+    var target_room = (creep.memory.target_room || 'W39S57');
+    var roomPath = attack_paths[target_room];
+    var healing_room = attack_paths.length > 1 && attack_paths[attack_paths.length - 2] || 'W39S59';
     /*
-    var targetRoom = 'W36S57';
-    var roomPath = ['W38S59',
-                    'W37S59',
-                    'W37S58',
-                    'W37S57',
-                    targetRoom]
-                    */
-    /*
-    var targetRoom = 'W39S56';
-    var roomPath = ['W40S59',
-                    'W40S58',
-                    'W40S57',
-                    'W40S56',
-                    targetRoom]
-                    */
-    var pos = new RoomPosition(25, 25, targetRoom)
+    var was_hit = creep.hits < (creep.memory.hits || 0);
+    creep.memory.hits = creep.hits
+    */
+
+    if (nearFlag === undefined){
+        nearFlag = Game.flags.Flag3 && Game.flags.Flag3.room && Game.flags.Flag3.pos.findInRange(FIND_MY_CREEPS, 5, {
+            filter: c => creep_.has(c, ATTACK),
+        });
+    }
+    if ((Game.time - (Memory.fighter_barrier || 0) < 200 ) && Game.flags.Flag3 && Game.flags.Flag3.room && Game.flags.Flag3.pos.roomName === creep.pos.roomName &&
+            nearFlag.length < fighters_quota){
+        if (!creep.pos.inRangeTo(Game.flags.Flag3, 5)){
+            creep.moveTo(Game.flags.Flag3);
+        }
+        return;
+    } else {
+        Memory.fighter_barrier = Game.time
+    }
     
-    if (creep.pos.roomName !== targetRoom){
+    if (creep.pos.roomName !== target_room){
         var index = roomPath.indexOf(creep.pos.roomName)
         if (index === -1){
             index = 0;
@@ -365,18 +420,36 @@ function fight(creep){
         }
         creep.moveTo(new RoomPosition(25, 25, roomPath[index]), default_path_opts);
     } else {
-        var enemy_structure = creep.room.find(FIND_HOSTILE_STRUCTURES, {
-            filter: s => s.structureType === STRUCTURE_TOWER,
-        });
-        if (!enemy_structure.length){
-            enemy_structure = creep.room.find(FIND_HOSTILE_SPAWNS);
+        if ((creep.memory.state === STATE_NULL || creep.memory.state === STATE_DELIVERING)
+                    && creep.hits >= creep.hitsMax * .7){
+            creep.memory.state = STATE_COLLECTING;
+        } else if (creep.memory.state === STATE_COLLECTING && creep.hits === creep.hitsMax){
+            creep.memory.state = STATE_DELIVERING;
         }
-        if (enemy_structure.length){
-            var opts = {}
-            Object.assign(opts, default_path_opts)
-            opts.ignoreDestructibleStructures = true;
-            creep.moveTo(enemy_structure[0], opts);
-            return
+        if (creep.memory.state === STATE_NULL || creep.memory.state === STATE_DELIVERING) {
+            var enemy_structure = creep.room.find(FIND_HOSTILE_STRUCTURES, {
+                filter: s => s.structureType === STRUCTURE_TOWER,
+            });
+            if (!enemy_structure.length){
+                enemy_structure = creep.room.find(FIND_HOSTILE_SPAWNS);
+            }
+            if (enemy_structure.length){
+                var path = creep.pos.findPathTo(enemy_structure[0]);
+                if (!path){
+                    var opts = {}
+                    Object.assign(opts, default_path_opts)
+                    opts.ignoreDestructibleStructures = true;
+                    creep.moveTo(enemy_structure[0], opts);
+                } else {
+                    creep.moveByPath(path);
+                }
+                return
+            }
+        } else if (creep.memory.state === STATE_COLLECTING){
+            var pos = new RoomPosition(25, 25, healing_room);
+            if (!creep.pos.inRangeTo(pos,20)){
+                creep.moveTo(pos, default_path_opts);
+            }
         }
     }
     var enemy = creep.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
@@ -392,6 +465,13 @@ function tower_act(tower){
     var enemy = tower.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
     if (enemy){
         tower.attack(enemy);
+        return
+    }
+    var injured = tower.pos.findClosestByRange(FIND_MY_CREEPS, {
+        filter: c => c.hits < c.hitsMax,
+    });
+    if (injured){
+        tower.heal(injured);
         return
     }
     if (damaged_half.length){
@@ -445,34 +525,45 @@ function near_build_flag(s) {
     }).length
 }
 
-function find(type, opts){
-    ret = [];
-    var keys = Object.keys(Game.rooms);
-    for (var i in keys){
-        var key = keys[i];
-        if (Game.rooms[key]){
-            ret = ret.concat(Game.rooms[key].find(type, opts));
-        }
-    }
-    return ret;
+
+const _my_rooms = [
+    'W39S59',
+    'W38S59',
+    'W37S59',
+    ]
+function my_rooms(s){
+    return s && s.pos && _my_rooms.indexOf(s.pos.roomName) !== -1;
 }
+
+var room2 = Game.rooms['W38S59'];
+var hostile_at_room2 = (room2 && room2.find(FIND_HOSTILE_CREEPS).length)
+fighters_quota = 0 + (hostile_at_room2 && 1)
+console.log(fighters_quota)
+//fighters_quota = 1;
 
 module.exports.loop = function () {
     
+    healer.update();
+    claimer.update();
+
+    var recycling = false;
     recharger_energy = 0;
+    maintenance_count = 0;
     wanted = {};
     offered = {};
     recharger_tower_energy = {};
     damaged = Object.keys(Game.structures).map(key => Game.structures[key])
     var neutral = find(FIND_STRUCTURES);
     damaged = damaged.concat(neutral);
-    damaged = damaged.filter(s => s.pos.roomName === 'W39S59' || s.pos.roomName === 'W38S59');
+    damaged = damaged.filter(s => my_rooms(s));
     stock = find(FIND_STRUCTURES, {
         filter: is_stock,
     });
+    stock = stock.filter(my_rooms);
     
     var room = Game.rooms['W39S59'];
-    if (Object.keys(Game.constructionSites).length == 0){
+    spawn_filled = room.energyAvailable >= .8 * room.energyCapacityAvailable;
+    if (Object.keys(Game.constructionSites).length === 0){
         Memory.upper_limit = upper_limits[room.controller.level];
     }
     damaged = damaged.filter(s => is_damaged(s));
@@ -484,34 +575,61 @@ module.exports.loop = function () {
         tower_act(towers[key]);
     }
 
-    source_taken = memory.get(Memory,'source_taken');
-    if (!source_taken){
-        source_taken = {}
-        Memory.source_taken = source_taken;
+    var links = _.filter(Game.structures, s => s.structureType === STRUCTURE_LINK);
+    var sink;
+    var fountain;
+    for (var key in links) {
+        if (links[key].pos.x === 30 && links[key].pos.y === 12){
+            sink = links[key];
+        } else if (links[key].pos.x === 3 && links[key].pos.y === 17){
+            fountain = links[key];
+        }
+    }
+    if ( sink && fountain &&
+         (sink.energy > .85 * sink.energyCapacity ||
+         (fountain.energy < 50 && sink.energy > .5 * sink.energyCapacity))){
+                sink.transferEnergy(fountain);
+    }
+
+
+    source_work_count = {};
+    /*
+    source_work_count = Memory.source_work_count;
+    if (!source_work_count){
+        source_work_count = {}
+        Memory.source_work_count = source_work_count;
     } else {
-        var keys = Object.keys(source_taken);
+        var keys = Object.keys(source_work_count);
         for (var key in keys){
-            if (source_taken[key] == null){
-                delete source_taken[key];
+            if (Object.keys(Game.creeps).indexOf(source_work_count[key]) === -1){
+                delete source_work_count[key];
             }
         }
-        memory.set(Memory,'source_taken', source_taken);
+        Memory.source_work_count = source_work_count;
     }
+    */
     container_of_source = {};
     source_container = [];
-    var sources = find(FIND_SOURCES);
+    var sources = find(FIND_SOURCES, {
+        filter: my_rooms,
+    });
     for (var key in sources){
         var source = sources[key];
         var container = source.pos.findInRange(FIND_STRUCTURES, 2,{
             filter: is_stock
         });
         if (container.length){
-            source_container.push(container[0])
+            if(source_container.indexOf(container[0]) === -1){
+                source_container.push(container[0]);
+            }
             container_of_source[source.id] = container[0];
         }
     }
     
 
+    room.createConstructionSite(3, 17, STRUCTURE_LINK);
+    room.createConstructionSite(30, 12, STRUCTURE_LINK);
+    room.createConstructionSite(10, 21, STRUCTURE_TOWER);
     room.createConstructionSite(24, 4, STRUCTURE_EXTENSION);
     room.createConstructionSite(24, 10, STRUCTURE_EXTENSION);
     room.createConstructionSite(24, 8, STRUCTURE_EXTENSION);
@@ -539,6 +657,7 @@ module.exports.loop = function () {
         harvesters = 0,
         fighters = 0,
         claimers = 0,
+        healers = 0,
         harvester_work = 0
         ;
         
@@ -547,6 +666,7 @@ module.exports.loop = function () {
         var state = creep.memory.state;
         
         if (creep.memory.recycle){
+            recycling = true;
             if (!creep.pos.isNearTo(Game.spawns.Spawn1)){
                 creep.moveTo(Game.spawns.Spawn1);
             }
@@ -554,24 +674,28 @@ module.exports.loop = function () {
             continue
         }
         
-        if (creep.memory.role == 'worker'){
+        if (creep.memory.role === 'worker'){
             workers += 1;
-        } else if (creep.memory.role == 'carrier'){
+        } else if (creep.memory.role === 'carrier'){
             carriers += 1;
-        } else if (creep.memory.role == 'harvester'){
+        } else if (creep.memory.role === 'harvester'){
             harvesters += 1;
-            harvester_work += has(creep,WORK);
-        } else if (creep.memory.role == 'fighter'){
+            harvester_work += creep_.has(creep,WORK);
+        } else if (creep.memory.role === 'fighter'){
             fighters += 1;
+        } else if (creep.memory.role === 'healer'){
+            healers += 1;
+        } else if (creep.memory.role === 'claimer'){
+            claimers += 1;
         }
         /*
-        if (has(creep,WORK) && has(creep,CARRY)){
+        if (creep_.has(creep,WORK) && creep_.has(creep,CARRY)){
             workers += 1;
-        } else if (has(creep,CARRY)){
+        } else if (creep_.has(creep,CARRY)){
             carriers += 1;
-        } else if (has(creep,WORK)){
+        } else if (creep_.has(creep,WORK)){
             harvesters += 1;
-            harvester_work += has(creep,WORK);
+            harvester_work += creep_.has(creep,WORK);
         }*/
         
         if (typeof creep.memory.state !== 'string'){
@@ -586,7 +710,7 @@ module.exports.loop = function () {
             } else if (state === STATE_DELIVERING && 
                         (!creep.carry[RESOURCE_ENERGY] || 
                             (creep.memory.stock_done && 
-                                creep.carry[RESOURCE_ENERGY] * 2 < creep.carryCapacity))){
+                                creep.carry[RESOURCE_ENERGY] < 50))){
                 delete creep.memory.stock_done;
                 state = STATE_COLLECTING;
                 memory.set(creep.memory, 'state', state)
@@ -598,7 +722,10 @@ module.exports.loop = function () {
             fight(creep);
             continue;
         } else if (creep.memory.role === 'claimer' ){
-            claim(creep);
+            claimer.action(creep);
+            continue;
+        } else if (creep.memory.role === 'healer' ){
+            healer.action(creep);
             continue;
         }
         
@@ -632,7 +759,7 @@ module.exports.loop = function () {
                 ret = goto_site(creep);
             }
             ret &= build_near(creep);
-            ret &= repair(creep);
+            ret &= repair_near(creep);
             if (ret){
                 ret = upgrade(creep);
             }
@@ -646,14 +773,27 @@ module.exports.loop = function () {
                 ret = deposit(creep);
             }
             if (ret){
+                ret = deposit(creep, true);
+            }
+            if (ret){
                 console.log('' + creep.name + ' in idle delivering')
+                ret = idle(creep)
             }
         }
     }
     var role = '';
-    if (harvester_work < 15 && harvesters < 4){
+    if (fighters < fighters_quota){
+        role = 'f'
+        ret = creep_.create('fighter',
+                [[TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE],
+                 //[TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE],
+                 //[TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE],
+                 //[TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,HEAL,HEAL,HEAL],
+        ]);
+
+    } else if (harvester_work < 20 && harvesters < 6){
         role = 'h';
-        ret = create('harvester',
+        ret = creep_.create('harvester',
                 [[WORK,WORK,MOVE],
                  [WORK,WORK,WORK,MOVE],
                  [WORK,WORK,WORK,WORK,MOVE],
@@ -662,18 +802,18 @@ module.exports.loop = function () {
                  [WORK,WORK,WORK,WORK,WORK,MOVE,MOVE,CARRY],
                  [WORK,WORK,WORK,WORK,WORK,MOVE,MOVE,MOVE,CARRY],
         ]);
-    } else if (carriers < 4){
+    } else if (carriers < 5){
         role = 'c'
-        ret = create('carrier',
+        ret = creep_.create('carrier',
                 [[CARRY,CARRY,MOVE],
                  [CARRY,CARRY,CARRY,CARRY,MOVE,MOVE],
                  [CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE],
                  [CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE],
                  [CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE],
         ]);
-    } else if (workers < 5){
+    } else if (workers < 4){
         role = 'w'
-        ret = create('worker',
+        ret = creep_.create('worker',
                 [[WORK,WORK,CARRY,MOVE],
                  [WORK,WORK,CARRY,CARRY,MOVE,MOVE],
                  [WORK,WORK,WORK,CARRY,MOVE,MOVE],
@@ -681,19 +821,29 @@ module.exports.loop = function () {
                  [WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE],
                  [WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE],
         ]);
-    } else if (fighters < 0){
-        role = 'f'
-        ret = create('fighter',
-                [[TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE],
-                 [TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE],
-                 [TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,HEAL,HEAL,HEAL],
-        ]);
-    } else if (claimers < 0){
+    } else if (claimers < 2){
         role = 'cl'
-        ret = create('claimer',
+        ret = creep_.create('claimer',
                 [[CLAIM,MOVE],
                  [CLAIM,CLAIM,MOVE,MOVE],
         ]);
+    } else if (healers < 0){
+        role = 'he'
+        ret = creep_.create('healer', healer.parts);
+    }
+    if (!role && !recycling &&
+            room.energyAvailable === room.energyCapacityAvailable){
+        for (var key in Game.creeps){
+            var creep = Game.creeps[key];
+            var cost = creep_.sum_cost(creep.body);
+            if (cost < 500 &&
+                    (creep.memory.role === 'worker' ||
+                    creep.memory.role === 'carrier' ||
+                    creep.memory.role === 'harvester')){
+                creep.memory.recycle = true;
+                break
+            }
+        }
     }
     console.log('' + Object.keys(Game.creeps).length +
                 (role && (' s' + role) || '   ') + 
@@ -702,5 +852,7 @@ module.exports.loop = function () {
                 //' h' + harvesters +
                 ' hw' + harvester_work +
                 ' f' + fighters +
+                ' he' + healers +
+                ' cl' + claimers +
                 ' ' + Game.cpu.getUsed().toFixed(2));
 }
