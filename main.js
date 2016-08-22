@@ -453,6 +453,7 @@ function fight(creep){
             if (!creep.pos.inRangeTo(pos,20)){
                 creep.moveTo(pos, default_path_opts);
             }
+            return
         }
     }
     let enemy = creep.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
