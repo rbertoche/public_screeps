@@ -660,6 +660,16 @@ module.exports.loop = function () {
     for (let key in  Game.creeps){
         let creep = Game.creeps[key];
         let state = creep.memory.state;
+        if (creep_.has(creep, HEAL)){
+            let heal_target = creep.pos.findClosestByRange(healer.heal_targets()[creep.pos.roomName])
+            if (heal_target) {
+                if (creep.pos.isNearTo(heal_target)){
+                    creep.heal(heal_target)
+                } else {
+                    creep.rangedHeal(heal_target)
+                }
+            }
+        }
         
         if (creep.memory.recycle){
             recycling = true;
