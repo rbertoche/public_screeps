@@ -420,8 +420,8 @@ function fight(creep){
         }
         creep.moveTo(new RoomPosition(25, 25, roomPath[index]), default_path_opts);
     } else {
-        if ((creep.memory.state === STATE_NULL || creep.memory.state === STATE_DELIVERING)
-                    && creep.hits >= creep.hitsMax * .7){
+        if ((creep.memory.state === STATE_NULL || creep.memory.state === STATE_DELIVERING) &&
+                    creep.hits >= creep.hitsMax * 0.7){
             creep.memory.state = STATE_COLLECTING;
         } else if (creep.memory.state === STATE_COLLECTING && creep.hits === creep.hitsMax){
             creep.memory.state = STATE_DELIVERING;
@@ -561,14 +561,14 @@ module.exports.loop = function () {
     });
     stock = stock.filter(my_rooms);
     
-    var room = Game.rooms['W39S59'];
-    spawn_filled = room.energyAvailable >= .8 * room.energyCapacityAvailable;
+    let room = Game.rooms['W39S59'];
+    spawn_filled = room.energyAvailable >= 0.8 * room.energyCapacityAvailable;
     if (Object.keys(Game.constructionSites).length === 0){
         Memory.upper_limit = upper_limits[room.controller.level];
     }
     damaged = damaged.filter(s => is_damaged(s));
-    damaged_half = damaged.filter(s => is_damaged(s, .9));
-    damaged_down = damaged.filter(s => is_damaged(s, .8));
+    damaged_half = damaged.filter(s => is_damaged(s, 0.9));
+    damaged_down = damaged.filter(s => is_damaged(s, 0.8));
     
     let towers = _.filter(Game.structures, s => s.structureType === STRUCTURE_TOWER);
     for (let key in towers) {
@@ -586,8 +586,8 @@ module.exports.loop = function () {
         }
     }
     if ( sink && fountain &&
-         (sink.energy > .85 * sink.energyCapacity ||
-         (fountain.energy < 50 && sink.energy > .5 * sink.energyCapacity))){
+         (sink.energy > 0.85 * sink.energyCapacity ||
+         (fountain.energy < 50 && sink.energy > 0.5 * sink.energyCapacity))){
                 sink.transferEnergy(fountain);
     }
 
@@ -704,7 +704,7 @@ module.exports.loop = function () {
         if (creep.memory.role === 'carrier' ||
             creep.memory.role === 'worker' ){
             if ((!state || state === STATE_COLLECTING) && 
-                    creep.carry[RESOURCE_ENERGY] > (.9 * creep.carryCapacity)){
+                    creep.carry[RESOURCE_ENERGY] > (0.9 * creep.carryCapacity)){
                 state = STATE_DELIVERING;
                 memory.set(creep.memory, 'state', state)
             } else if (state === STATE_DELIVERING && 
