@@ -18,7 +18,7 @@ var index;
 module.exports = {
     done: function() {return done;},
     spawn: function() {return spawn && !done;},
-    
+
     update: function() {
         index = 0;
         if (Game.rooms[target]){
@@ -55,44 +55,44 @@ module.exports = {
             }
         }
     },
-    
-	action: function(creep)
-	{
-	    index += 1;
-	    if (index == 1 || index == 2){
-	        let target_;
-	        if (index == 1){
-	             target_ = 'W38S59';
-	        } else {
-	             target_ = 'W37S59';
-	        }
-	        if (creep.pos.roomName !== target_){
+
+    action: function(creep)
+    {
+        index += 1;
+        if (index == 1 || index == 2){
+            let target_;
+            if (index == 1){
+                 target_ = 'W38S59';
+            } else {
+                 target_ = 'W37S59';
+            }
+            if (creep.pos.roomName !== target_){
                 creep.moveTo(new RoomPosition(25,25,target_));
-	        } else {
-	            creep.reserveController(Game.rooms[target_].controller);
-	            creep.moveTo(Game.rooms[target_].controller);
-	        }
-	        return;
-	    }
+            } else {
+                creep.reserveController(Game.rooms[target_].controller);
+                creep.moveTo(Game.rooms[target_].controller);
+            }
+            return;
+        }
         if (!Game.rooms[target]){
             creep.moveTo(new RoomPosition(25,25,target));
             return
         }
-	    if (done){
-	        return;
-	    }
-	    if (!creep.pos.isNearTo(target_controller)){
-	        creep.moveTo(target_controller);
-	    }
-	    if (attack && creep.body_[CLAIM] >= 5){
-	        creep.attackController(target_controller)
-	    } else if (claim){
-	        let ret = creep.claimController(target_controller);
-	        if (ret == ERR_GCL_NOT_ENOUGH){
-	            creep.reserveController(target_controller);
-	        }
-	    }
-	    
-	},
-	    
+        if (done){
+            return;
+        }
+        if (!creep.pos.isNearTo(target_controller)){
+            creep.moveTo(target_controller);
+        }
+        if (attack && creep.body_[CLAIM] >= 5){
+            creep.attackController(target_controller)
+        } else if (claim){
+            let ret = creep.claimController(target_controller);
+            if (ret == ERR_GCL_NOT_ENOUGH){
+                creep.reserveController(target_controller);
+            }
+        }
+
+    },
+
 };

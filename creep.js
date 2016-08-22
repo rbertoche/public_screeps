@@ -7,7 +7,7 @@ function sum_cost(body){
 }
 
 module.exports = {
-    
+
     sum_cost: sum_cost,
 
     has: function has(creep, part){

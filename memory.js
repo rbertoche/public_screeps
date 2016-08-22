@@ -17,7 +17,7 @@ function isIterable(obj) {
 }
 
 function pack(value){
-    
+
     // console.log('pack ' + value + ' of type ' + typeof value);
     if(value instanceof RoomObject && typeof value.id === 'string'){
         value = value.id
@@ -41,7 +41,7 @@ function pack(value){
                 // console.log('pack value2', key, value[key])
             }
         }
-        
+
         value = ret;
     } else if(isIterable(value) && typeof value !== 'string'){
         let ret = [];
@@ -78,7 +78,7 @@ function unpack(value){
             let key = keys[i];
             ret[key] = unpack(value[key]);
         }
-        
+
         return ret;
     } else {
         console.log('unpack should be called on ids and arrays, not ' + value + ' of type ' + typeof value);

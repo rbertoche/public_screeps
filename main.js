@@ -159,7 +159,7 @@ function harvest(creep)
         } else if (Game.rooms['W37S59'] === undefined){
             creep.moveTo(new RoomPosition(2,13, 'W37S59', default_path_opts));
             return
-            
+
         } else {
             if (!creep.pos.inRangeTo(Game.flags.Flag1, 4)){
                 creep.moveTo(Game.flags.Flag1, default_path_opts);
@@ -344,7 +344,7 @@ function procure(creep){
         if (!target && targets.length){
             target = targets[0];
         }
-        
+
         if (!creep.pos.isNearTo(target)){
             creep.moveTo(target, default_path_opts)
         }
@@ -458,7 +458,7 @@ function fight(creep){
           }
       }
     }
-    
+
     if (creep.pos.roomName === target_room ||
         creep.pos.roomName === healing_room){
         if ( creep.memory.state === STATE_DELIVERING &&
@@ -571,7 +571,7 @@ function is_damaged(s, rate){
         rate = 1;
     }
     return s && s.structureType !== STRUCTURE_CONTROLLER &&
-            s.hits < (s.hitsMax * rate) && 
+            s.hits < (s.hitsMax * rate) &&
             s.hits < (Memory.upper_limit * rate);
 }
 
@@ -581,7 +581,7 @@ function is_stock(s){
             s.storeCapacity;
 }
 
-function near_build_flag(s) { 
+function near_build_flag(s) {
     return s.room && s.pos.findInRange(FIND_FLAGS, 4, {
         filter: (flag) => { return flag.color === COLOR_YELLOW; }
     }).length
@@ -599,7 +599,7 @@ function my_rooms(s){
 }
 
 module.exports.loop = function () {
-    
+
     energy = undefined;
     healer.update();
     claimer.update();
@@ -636,7 +636,7 @@ module.exports.loop = function () {
         filter: is_stock,
     });
     stock = stock.filter(my_rooms);
-    
+
     let room = Game.rooms['W39S59'];
     spawn_filled = room.energyAvailable >= 0.8 * room.energyCapacityAvailable;
     if (Object.keys(Game.constructionSites).length === 0){
@@ -645,7 +645,7 @@ module.exports.loop = function () {
     damaged = damaged.filter(s => is_damaged(s));
     damaged_half = damaged.filter(s => is_damaged(s, 0.9));
     damaged_down = damaged.filter(s => is_damaged(s, 0.8));
-    
+
     let towers = _.filter(Game.structures, s => s.structureType === STRUCTURE_TOWER);
     for (let key in towers) {
         tower_act(towers[key]);
@@ -702,7 +702,7 @@ module.exports.loop = function () {
             container_of_source[source.id] = container[0];
         }
     }
-    
+
     room2 = Game.rooms['W37S57'];
     if (room2){
         room2.createConstructionSite(35, 26, STRUCTURE_TOWER);
@@ -727,7 +727,7 @@ module.exports.loop = function () {
     room.createConstructionSite(19, 7, STRUCTURE_EXTENSION);
     room.createConstructionSite(19, 9, STRUCTURE_EXTENSION);
     room.createConstructionSite(19, 5, STRUCTURE_EXTENSION);
-    
+
     let workers = 0,
         carriers = 0,
         harvesters = 0,
@@ -736,11 +736,11 @@ module.exports.loop = function () {
         healers = 0,
         harvester_work = 0
         ;
-        
+
     for (let key in  Game.creeps){
         let creep = Game.creeps[key];
         let state = creep.memory.state;
-        
+
         if (creep.memory.recycle){
             recycling = true;
             if (!creep.pos.isNearTo(Game.spawns.Spawn1)){
@@ -749,7 +749,7 @@ module.exports.loop = function () {
             Game.spawns.Spawn1.recycleCreep(creep);
             continue
         }
-        
+
         if (creep.memory.role === 'worker'){
             workers += 1;
         } else if (creep.memory.role === 'carrier'){
@@ -773,19 +773,19 @@ module.exports.loop = function () {
             harvesters += 1;
             harvester_work += creep_.has(creep,WORK);
         }*/
-        
+
         if (typeof creep.memory.state !== 'string'){
             creep.memory.state = STATE_NULL;
         }
         if (creep.memory.role === 'carrier' ||
             creep.memory.role === 'worker' ){
-            if ((!state || state === STATE_COLLECTING) && 
+            if ((!state || state === STATE_COLLECTING) &&
                     creep.carry[RESOURCE_ENERGY] > (0.9 * creep.carryCapacity)){
                 state = STATE_DELIVERING;
                 memory.set(creep.memory, 'state', state)
-            } else if (state === STATE_DELIVERING && 
-                        (!creep.carry[RESOURCE_ENERGY] || 
-                            (creep.memory.stock_done && 
+            } else if (state === STATE_DELIVERING &&
+                        (!creep.carry[RESOURCE_ENERGY] ||
+                            (creep.memory.stock_done &&
                                 creep.carry[RESOURCE_ENERGY] < 50))){
                 delete creep.memory.stock_done;
                 state = STATE_COLLECTING;
@@ -804,10 +804,10 @@ module.exports.loop = function () {
             healer.action(creep);
             continue;
         }
-        
+
         pickup(creep);
-        
-        
+
+
         let ret = -1;
         if (!state || state === STATE_COLLECTING ){
             if (ret){
@@ -821,7 +821,7 @@ module.exports.loop = function () {
                 ret = idle(creep);
             }
         } else if ( state === STATE_DELIVERING ){
-            
+
             if (ret){
                 ret = upgrade(creep, 2, 'W39S59');
             }
@@ -940,9 +940,9 @@ module.exports.loop = function () {
         }
     }
     console.log('' + Object.keys(Game.creeps).length +
-                (role && (' s' + role) || '   ') + 
+                (role && (' s' + role) || '   ') +
                 ' w' + workers +
-                ' c' + carriers + 
+                ' c' + carriers +
                 //' h' + harvesters +
                 ' hw' + harvester_work +
                 ' f' + fighters +
