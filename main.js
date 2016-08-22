@@ -19,7 +19,7 @@ var spawn_filled;
 var wanted, offered;
 var nearFlag;
 var room2;
-var hostile_at_room2, fithers_quota;
+var hostile_at_room2, fighters_quota;
 
 
 const default_path_opts = {
