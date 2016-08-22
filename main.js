@@ -787,8 +787,12 @@ module.exports.loop = function () {
             }
         }
     }
+    let memory_ = {};
     room2 = Game.rooms['W38S59'];
     hostile_at_room2 = (room2 && room2.find(FIND_HOSTILE_CREEPS).length)
+    if (hostile_at_room2){
+        memory_.target_room = room2.name;
+    }
     fighters_quota = 0 + (hostile_at_room2 && 1)
     let role = '';
     if (fighters < fighters_quota){
@@ -798,7 +802,7 @@ module.exports.loop = function () {
                  [TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE],
                  [TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE],
                  [TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,HEAL,HEAL,HEAL],
-        ]);
+        ], memory_);
 
     } else if (harvester_work < 20 && harvesters < 6){
         role = 'h';
