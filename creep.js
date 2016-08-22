@@ -24,7 +24,7 @@ module.exports = {
         return ret;
     },
 
-    create: function create(role, bodies){
+    create: function create(role, bodies, memory){
         let costs = bodies.map(sum_cost);
         let body;
         let spawn = Game.spawns.Spawn1;
@@ -35,10 +35,22 @@ module.exports = {
             }
         }
         if (body){
-            console.log('spawning ' + body)
-            let name = spawn.createCreep(body);
-            Memory.creeps[name] = { role:role };
-            return;
+            let ret = spawn.createCreep(body);
+            if (typeof ret === 'string'){
+                console.log('spawning', ret, body)
+                if (memory === undefined){
+                    memory = {};
+                }
+                memory.role = role
+                Memory.creeps[ret] = memory;
+                return;
+            } else if (ret === ERR_BUSY){
+                //console.log('spawn busy')
+            } else if (ret === ERR_NOT_ENOUGH_ENERGY){
+                console.log('not enough energy to spawn', role)
+            } else {
+                console.log('cant spawn:', ret)
+            }
         }
         return -1;
     },
