@@ -10,7 +10,7 @@
 
 function isIterable(obj) {
   // checks for null and undefined
-  if (obj == null) {
+  if (obj === null) {
     return false;
   }
   return typeof obj[Symbol.iterator] === 'function';
@@ -97,7 +97,7 @@ function define(memory, key, value){
 
 function set(memory, key, value){
     if (value !== undefined){
-        return memory[key] = pack(value);
+        memory[key] = pack(value);
     }
 }
 
