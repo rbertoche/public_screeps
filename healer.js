@@ -3,10 +3,10 @@
  * work on this one later
  * @param creep
  */
- 
+
 find = require('find');
 creep_ = require('creep');
- 
+
 var heal_targets_all;
 var urgent_heal_targets_all;
 var heal_targets;
@@ -19,7 +19,7 @@ var healer = {
     urgent_heal_targets: function(){ return urgent_heal_targets; },
     heal_targets_all: function(){ return heal_targets_all; },
     urgent_heal_targets_all: function(){ return urgent_heal_targets_all; },
-    
+
 	parts: [
 	    //[Game.TOUGH, Game.MOVE, , Game.ATTACK]
 		[TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, HEAL],
@@ -34,7 +34,7 @@ var healer = {
 		[TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, MOVE, MOVE, MOVE, MOVE, MOVE,
 		    MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, HEAL, HEAL, HEAL, HEAL, HEAL],
 	],
-	
+
 	update: function()
 	{
         heal_targets_all = find(FIND_MY_CREEPS, {
@@ -49,8 +49,8 @@ var healer = {
         });
         heal_targets = {};
         urgent_heal_targets = {};
-        var rooms = Object.keys(Game.rooms);
-        for (var room in rooms){
+        let rooms = Object.keys(Game.rooms);
+        for (let room in rooms){
             heal_targets[room] = heal_targets_all.filter(c => c.pos.roomName == room);
             urgent_heal_targets[room] = urgent_heal_targets_all.filter(c => c.pos.roomName == room);
         }
@@ -70,13 +70,14 @@ var healer = {
 
 	action: function(creep)
 	{
-	    var hostiles = creep.room.find(FIND_HOSTILE_CREEPS);
-		var close_hostiles = _.filter(hostiles, function(c){
+	    let hostiles = creep.room.find(FIND_HOSTILE_CREEPS);
+		let close_hostiles = _.filter(hostiles, function(c){
 		                        return creep.pos.inRangeTo(c,1);
 		});
-		
+
+    let closest;
 		if (urgent_heal_targets_all.length){
-            var closest = creep.pos.findClosestByRange(urgent_heal_targets_all) || 
+            closest = creep.pos.findClosestByRange(urgent_heal_targets_all) ||
                     (urgent_heal_targets_all.length && urgent_heal_targets_all[0]);
             if(!creep.pos.isNearTo(closest) || creep.at_exit) {
                 creep.moveTo(closest);
@@ -87,7 +88,7 @@ var healer = {
 		    }
 		    return
 		} else if (heal_targets_all.length){
-		    var closest = creep.pos.findClosestByRange(heal_targets_all) || 
+		    closest = creep.pos.findClosestByRange(heal_targets_all) ||
                     (heal_targets_all.length && heal_targets_all[0]);
 		    if(!creep.pos.isNearTo(closest) || creep.at_exit) {
                 creep.moveTo(closest);
@@ -99,7 +100,7 @@ var healer = {
 		    return
 		/*
 		} else if (flag_warriors.length){
-		    var closest = creep.pos.findClosestByRange(flag_warriors);
+		    let closest = creep.pos.findClosestByRange(flag_warriors);
 		    if (closest){
 			    creep.moveTo(closest);
 		    } else if (flag_warriors.length){
@@ -108,7 +109,7 @@ var healer = {
 			//console.log('this.rest();');
 		} else if (warriors.length){
 		    //var closest = creep.pos.findClosestByRange(warriors);
-		    var closest = _.sortBy(warriors, c => c.body.length);
+		    closest = _.sortBy(warriors, c => c.body.length);
 		    closest = closest[closest.length - 1];
 		    if (closest){
 			    creep.moveTo(closest);

@@ -60,7 +60,7 @@ module.exports = {
 	{
 	    index += 1;
 	    if (index == 1 || index == 2){
-	        var target_;
+	        let target_;
 	        if (index == 1){
 	             target_ = 'W38S59';
 	        } else {
@@ -87,7 +87,7 @@ module.exports = {
 	    if (attack && creep.body_[CLAIM] >= 5){
 	        creep.attackController(target_controller)
 	    } else if (claim){
-	        var ret = creep.claimController(target_controller);
+	        let ret = creep.claimController(target_controller);
 	        if (ret == ERR_GCL_NOT_ENOUGH){
 	            creep.reserveController(target_controller);
 	        }

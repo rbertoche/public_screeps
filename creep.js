@@ -11,7 +11,7 @@ module.exports = {
     sum_cost: sum_cost,
 
     has: function has(creep, part){
-        var ret;
+        let ret;
         if (creep.memory.has === undefined){
             creep.memory.has = {};
         }
@@ -25,9 +25,9 @@ module.exports = {
     },
 
     create: function create(role, bodies){
-        var costs = bodies.map(sum_cost);
-        var body;
-        var spawn = Game.spawns.Spawn1;
+        let costs = bodies.map(sum_cost);
+        let body;
+        let spawn = Game.spawns.Spawn1;
         for (var i=costs.length - 1; i >= 0; i--){
             if (costs[i] <= spawn.room.energyAvailable){
                 body = bodies[i];
@@ -36,7 +36,7 @@ module.exports = {
         }
         if (body){
             console.log('spawning ' + body)
-            var name = spawn.createCreep(body);
+            let name = spawn.createCreep(body);
             Memory.creeps[name] = { role:role };
             return;
         }

@@ -26,8 +26,8 @@ const default_path_opts = {
 }
 
 function get_site(creep, filter){
-    var sites = _.filter(Game.constructionSites, filter);
-    var ret = creep.pos.findClosestByRange(sites);
+    let sites = _.filter(Game.constructionSites, filter);
+    let ret = creep.pos.findClosestByRange(sites);
     if (!ret && sites.length){
         ret = sites[0];
     }
@@ -38,26 +38,26 @@ function get_damaged(creep){
     return creep.pos.findClosestByRange(damaged);
 }
 function get_near_damaged(creep){
-    var ret = creep.pos.findInRange(damaged,2);
+    let ret = creep.pos.findInRange(damaged,2);
     return ret.length && ret[0];
 }
 
 function get_damaged_down(creep){
         /*
         //var keys = Object.keys();
-        for (var key in Game.structures){
-            var structure = Game.structures[key];
+        for (let key in Game.structures){
+            let structure = Game.structures[key];
             if ()
         }*/
-    var ret = creep.pos.findClosestByRange(damaged_down);
+    let ret = creep.pos.findClosestByRange(damaged_down);
     return ret || damaged_down.length && damaged_down[0];
 }
 
 function repair_near(creep){
     if (creep.memory.role === 'worker'){
-        var damaged_ = get_near_damaged(creep);
+        let damaged_ = get_near_damaged(creep);
         if (damaged_){
-            var ret = creep.repair(damaged_);
+            let ret = creep.repair(damaged_);
             return ret;
         }
     }
@@ -66,7 +66,7 @@ function repair_near(creep){
 
 function goto_damaged(creep){
     if (creep.memory.role === 'worker' && maintenance_count < 2){
-        var damaged_down_ = get_damaged_down(creep);
+        let damaged_down_ = get_damaged_down(creep);
         if (damaged_down_){
             if (!creep.pos.isNearTo(damaged_down_)){
                 creep.moveTo(damaged_down_, default_path_opts)
@@ -86,9 +86,9 @@ function source_filter(creep){
 function harvest(creep)
 {
     if (creep.memory.role === 'harvester'){
-        var source;
+        let source;
         /*
-        var taken = _.filter(source_work_count, s => s === creep);
+        let taken = _.filter(source_work_count, s => s === creep);
         if (taken.length){
             source = creep.pos.findClosestByPath(taken)  || taken.length && taken[0];
         } else {
@@ -99,22 +99,22 @@ function harvest(creep)
                 filter: source_filter(creep),
             })
         source = creep.pos.findClosestByPath(source) || source.length && source[0];
-        var target = source;
-        var container = source && container_of_source[source.id];
+        let target = source;
+        let container = source && container_of_source[source.id];
 
         if (source){
             creep.harvest(source);
             if (!creep.pos.isNearTo(source)){
                 creep.moveTo(source, default_path_opts);
             } else if (container){
-                var x = container.pos.x;
-                var y = container.pos.y;
-                var x_ = ((x + source.pos.x) / 2) - .5
+                let x = container.pos.x;
+                let y = container.pos.y;
+                let x_ = ((x + source.pos.x) / 2) - 0.5
                 x = x_.toFixed()
-                var y_ = ((y + source.pos.y) / 2) - .5
+                let y_ = ((y + source.pos.y) / 2) - 0.5
                 y = y_.toFixed()
 
-                var pos = creep.room.getPositionAt(x,y);
+                let pos = creep.room.getPositionAt(x,y);
                 if (creep.room.getPositionAt(x,y).lookFor(LOOK_TERRAIN)[0] === 'wall'){
                     if (x == source.pos.x){
                         x = container.pos.x;
@@ -154,9 +154,9 @@ function harvest(creep)
 
 function build_near(creep, filter){
     if (creep.memory.role === 'worker'){
-        var site = get_site(creep, filter)
+        let site = get_site(creep, filter)
         if (site && creep.pos.inRangeTo(site, 2)){
-            var ret = creep.build(site);
+            let ret = creep.build(site);
             return ret;
         }
     }
@@ -164,7 +164,7 @@ function build_near(creep, filter){
 }
 
 function goto_site(creep, filter){
-    var site = get_site(creep, filter)
+    let site = get_site(creep, filter)
     if (creep.memory.role === 'worker'){
         if (site){
             if(!creep.pos.isNearTo(site)){
@@ -194,7 +194,7 @@ function deposit(creep, to_storage)
             return -1
         }
 
-        var stock_ = creep.memory.stock !== undefined && memory.get(creep.memory, 'stock');
+        let stock_ = creep.memory.stock !== undefined && memory.get(creep.memory, 'stock');
         if (creep.memory.stock === undefined || !stock_filter(to_storage)(stock_)){
             stock_ = stock.filter(stock_filter(to_storage));
             //if (!to_storage){
@@ -224,14 +224,14 @@ function get_structures(creep, type, filter){
     return _.filter(Game.structures, s => (!type || s.structureType === type) && (filter === undefined || filter(s)) );
 }
 function get_structure(creep, type, filter){
-    var ret = get_structures(creep, type, filter);
+    let ret = get_structures(creep, type, filter);
     return creep.pos.findClosestByRange(ret) || (ret.length && ret[0]);
 }
 
 function recharge_tower(creep)
 {
     if (creep_.has(creep, CARRY)){
-        var tower = get_structure(creep, STRUCTURE_TOWER, s => s.energy < s.energyCapacity);
+        let tower = get_structure(creep, STRUCTURE_TOWER, s => s.energy < s.energyCapacity);
         if (tower && (recharger_tower_energy[tower.id] || 0) < (tower.energyCapacity - tower.energy)){
             if (!creep.pos.isNearTo(tower)){
                 creep.moveTo(tower, default_path_opts);
@@ -248,7 +248,7 @@ function recharge(creep)
 {
     if (creep_.has(creep, CARRY)){
         if (recharger_energy < (creep.room.energyCapacityAvailable - creep.room.energyAvailable)){
-            var spawn = get_structure(creep, null, s => s.energy < s.energyCapacity && s.structureType !== STRUCTURE_TOWER &&
+            let spawn = get_structure(creep, null, s => s.energy < s.energyCapacity && s.structureType !== STRUCTURE_TOWER &&
                                         s.id !== '57b8a56ffabeea087e9872b5');
             if (spawn){
                 if (!creep.pos.isNearTo(spawn)){
@@ -270,7 +270,7 @@ function recharge(creep)
 
 function pickup(creep){
     if (creep_.has(creep, CARRY)){
-        var energy = creep.pos.findInRange(FIND_DROPPED_ENERGY, 1);
+        let energy = creep.pos.findInRange(FIND_DROPPED_ENERGY, 1);
         if (energy.length){
             creep.pickup(energy[0]);
             return;
@@ -290,14 +290,14 @@ function procure_filter(s){
 
 function procure(creep){
     if (creep_.has(creep, CARRY)){
-        var targets = [];
-        var stock_ = [], energy, source_container_, source_container__;
+        let targets = [];
+        let stock_ = [], energy, source_container_, source_container__;
         if (creep.memory.role === 'worker' || (creep.memory.role === 'carrier' &&
                     !spawn_filled )){
             stock_ = stock.filter(procure_filter);
         }
         source_container_ = source_container.filter(procure_filter);
-        var storage = source_container_.filter(s => s.structureType === STRUCTURE_STORAGE);
+        let storage = source_container_.filter(s => s.structureType === STRUCTURE_STORAGE);
         storage = storage.length && storage[0];
         energy = find(FIND_DROPPED_ENERGY, {
             filter: procure_filter
@@ -308,7 +308,7 @@ function procure(creep){
         }
 
         if (creep.memory.role === 'worker'){
-            var link = get_structure(creep, STRUCTURE_LINK, s => s.energy);
+            let link = get_structure(creep, STRUCTURE_LINK, s => s.energy);
             if (link && procure_filter(link)){
                 if (creep.pos.inRangeTo(link,2)){
                     targets = [link];
@@ -317,7 +317,7 @@ function procure(creep){
                 }
             }
         }
-        var target = creep.pos.findClosestByRange(targets);
+        let target = creep.pos.findClosestByRange(targets);
         if (!target && targets.length){
             target = targets[0];
         }
@@ -328,7 +328,7 @@ function procure(creep){
         if (!creep.pos.isNearTo(target)){
             creep.moveTo(target, default_path_opts)
         }
-        var ret;
+        let ret;
         if (target instanceof Energy){
             ret = creep.pickup(target);
             target = target.pos
@@ -348,12 +348,12 @@ function procure(creep){
 function upgrade(creep, lvl)
 {
     lvl = lvl || 11;
-    var controller = Game.rooms['W39S59'].controller;
+    let controller = Game.rooms['W39S59'].controller;
     if (creep.memory.role === 'worker' && controller && 
             (controller.level < lvl ||
                 controller.ticksToDowngrade < 1500)){
         if (!creep.pos.isNearTo(controller)){
-            //var opts = {}
+            //let opts = {}
             //Object.assign(opts, default_path_opts)
             //opts.ignoreCreeps = true;
             //creep.moveTo(5, 16, opts);
@@ -388,11 +388,11 @@ const attack_paths = {
 
 function fight(creep){
 
-    var target_room = (creep.memory.target_room || 'W39S57');
-    var roomPath = attack_paths[target_room];
-    var healing_room = attack_paths.length > 1 && attack_paths[attack_paths.length - 2] || 'W39S59';
+    let target_room = (creep.memory.target_room || 'W39S57');
+    let roomPath = attack_paths[target_room];
+    let healing_room = attack_paths.length > 1 && attack_paths[attack_paths.length - 2] || 'W39S59';
     /*
-    var was_hit = creep.hits < (creep.memory.hits || 0);
+    let was_hit = creep.hits < (creep.memory.hits || 0);
     creep.memory.hits = creep.hits
     */
 
@@ -412,7 +412,7 @@ function fight(creep){
     }
     
     if (creep.pos.roomName !== target_room){
-        var index = roomPath.indexOf(creep.pos.roomName)
+        let index = roomPath.indexOf(creep.pos.roomName)
         if (index === -1){
             index = 0;
         } else {
@@ -427,16 +427,16 @@ function fight(creep){
             creep.memory.state = STATE_DELIVERING;
         }
         if (creep.memory.state === STATE_NULL || creep.memory.state === STATE_DELIVERING) {
-            var enemy_structure = creep.room.find(FIND_HOSTILE_STRUCTURES, {
+            let enemy_structure = creep.room.find(FIND_HOSTILE_STRUCTURES, {
                 filter: s => s.structureType === STRUCTURE_TOWER,
             });
             if (!enemy_structure.length){
                 enemy_structure = creep.room.find(FIND_HOSTILE_SPAWNS);
             }
             if (enemy_structure.length){
-                var path = creep.pos.findPathTo(enemy_structure[0]);
+                let path = creep.pos.findPathTo(enemy_structure[0]);
                 if (!path){
-                    var opts = {}
+                    let opts = {}
                     Object.assign(opts, default_path_opts)
                     opts.ignoreDestructibleStructures = true;
                     creep.moveTo(enemy_structure[0], opts);
@@ -446,13 +446,13 @@ function fight(creep){
                 return
             }
         } else if (creep.memory.state === STATE_COLLECTING){
-            var pos = new RoomPosition(25, 25, healing_room);
+            let pos = new RoomPosition(25, 25, healing_room);
             if (!creep.pos.inRangeTo(pos,20)){
                 creep.moveTo(pos, default_path_opts);
             }
         }
     }
-    var enemy = creep.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
+    let enemy = creep.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
     if (enemy){
         creep.attack(enemy)
         if (!creep.pos.isNearTo(enemy)){
@@ -462,12 +462,12 @@ function fight(creep){
 }
 
 function tower_act(tower){
-    var enemy = tower.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
+    let enemy = tower.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
     if (enemy){
         tower.attack(enemy);
         return
     }
-    var injured = tower.pos.findClosestByRange(FIND_MY_CREEPS, {
+    let injured = tower.pos.findClosestByRange(FIND_MY_CREEPS, {
         filter: c => c.hits < c.hitsMax,
     });
     if (injured){
@@ -475,7 +475,7 @@ function tower_act(tower){
         return
     }
     if (damaged_half.length){
-        var damaged_half_ = tower.pos.findClosestByRange(damaged_half);
+        let damaged_half_ = tower.pos.findClosestByRange(damaged_half);
         if (damaged_half_){
             tower.repair(damaged_half_);
             return;
@@ -546,14 +546,14 @@ module.exports.loop = function () {
     healer.update();
     claimer.update();
 
-    var recycling = false;
+    let recycling = false;
     recharger_energy = 0;
     maintenance_count = 0;
     wanted = {};
     offered = {};
     recharger_tower_energy = {};
     damaged = Object.keys(Game.structures).map(key => Game.structures[key])
-    var neutral = find(FIND_STRUCTURES);
+    let neutral = find(FIND_STRUCTURES);
     damaged = damaged.concat(neutral);
     damaged = damaged.filter(s => my_rooms(s));
     stock = find(FIND_STRUCTURES, {
@@ -570,15 +570,15 @@ module.exports.loop = function () {
     damaged_half = damaged.filter(s => is_damaged(s, .9));
     damaged_down = damaged.filter(s => is_damaged(s, .8));
     
-    var towers = _.filter(Game.structures, s => s.structureType === STRUCTURE_TOWER);
-    for (var key in towers) {
+    let towers = _.filter(Game.structures, s => s.structureType === STRUCTURE_TOWER);
+    for (let key in towers) {
         tower_act(towers[key]);
     }
 
-    var links = _.filter(Game.structures, s => s.structureType === STRUCTURE_LINK);
-    var sink;
-    var fountain;
-    for (var key in links) {
+    let links = _.filter(Game.structures, s => s.structureType === STRUCTURE_LINK);
+    let sink;
+    let fountain;
+    for (let key in links) {
         if (links[key].pos.x === 30 && links[key].pos.y === 12){
             sink = links[key];
         } else if (links[key].pos.x === 3 && links[key].pos.y === 17){
@@ -599,8 +599,8 @@ module.exports.loop = function () {
         source_work_count = {}
         Memory.source_work_count = source_work_count;
     } else {
-        var keys = Object.keys(source_work_count);
-        for (var key in keys){
+        let keys = Object.keys(source_work_count);
+        for (let key in keys){
             if (Object.keys(Game.creeps).indexOf(source_work_count[key]) === -1){
                 delete source_work_count[key];
             }
@@ -610,12 +610,12 @@ module.exports.loop = function () {
     */
     container_of_source = {};
     source_container = [];
-    var sources = find(FIND_SOURCES, {
+    let sources = find(FIND_SOURCES, {
         filter: my_rooms,
     });
-    for (var key in sources){
-        var source = sources[key];
-        var container = source.pos.findInRange(FIND_STRUCTURES, 2,{
+    for (let key in sources){
+        let source = sources[key];
+        let container = source.pos.findInRange(FIND_STRUCTURES, 2,{
             filter: is_stock
         });
         if (container.length){
@@ -652,7 +652,7 @@ module.exports.loop = function () {
     room.createConstructionSite(19, 9, STRUCTURE_EXTENSION);
     room.createConstructionSite(19, 5, STRUCTURE_EXTENSION);
     
-    var workers = 0,
+    let workers = 0,
         carriers = 0,
         harvesters = 0,
         fighters = 0,
@@ -661,9 +661,9 @@ module.exports.loop = function () {
         harvester_work = 0
         ;
         
-    for (var key in  Game.creeps){
-        var creep = Game.creeps[key];
-        var state = creep.memory.state;
+    for (let key in  Game.creeps){
+        let creep = Game.creeps[key];
+        let state = creep.memory.state;
         
         if (creep.memory.recycle){
             recycling = true;
@@ -732,7 +732,7 @@ module.exports.loop = function () {
         pickup(creep);
         
         
-        var ret = -1;
+        let ret = -1;
         if (!state || state === STATE_COLLECTING ){
             if (ret){
                 ret = harvest(creep);
@@ -781,7 +781,7 @@ module.exports.loop = function () {
             }
         }
     }
-    var role = '';
+    let role = '';
     if (fighters < fighters_quota){
         role = 'f'
         ret = creep_.create('fighter',
@@ -833,9 +833,9 @@ module.exports.loop = function () {
     }
     if (!role && !recycling &&
             room.energyAvailable === room.energyCapacityAvailable){
-        for (var key in Game.creeps){
-            var creep = Game.creeps[key];
-            var cost = creep_.sum_cost(creep.body);
+        for (let key in Game.creeps){
+            let creep = Game.creeps[key];
+            let cost = creep_.sum_cost(creep.body);
             if (cost < 500 &&
                     (creep.memory.role === 'worker' ||
                     creep.memory.role === 'carrier' ||

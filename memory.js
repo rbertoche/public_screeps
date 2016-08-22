@@ -31,10 +31,10 @@ function pack(value){
             console.log('pack should not be called on GameObject snapshot Objects');
             return null;
         }
-        var ret = {};
-        var keys = Object.keys(value);
-        for (var i in keys){
-            var key = keys[i];
+        let ret = {};
+        let keys = Object.keys(value);
+        for (let i in keys){
+            let key = keys[i];
             if (value[key] !== undefined){
                 // console.log('pack value1', key, value[key])
                 ret[key] = pack(value[key]);
@@ -44,8 +44,8 @@ function pack(value){
         
         value = ret;
     } else if(isIterable(value) && typeof value !== 'string'){
-        var ret = [];
-        for (var k in value){
+        let ret = [];
+        for (let k in value){
             ret.push(pack(value[k]));
         }
         value = ret;
@@ -54,11 +54,12 @@ function pack(value){
 }
 
 function unpack(value){
+    let ret;
     if (typeof value === 'string' && value.length === 24){
         return Game.getObjectById(value);
     } else if (isIterable(value)){
-        var ret = [];
-        for (var k in value){
+        ret = [];
+        for (let k in value){
             ret.push(unpack(value[k]));
         }
         return ret;
@@ -71,10 +72,10 @@ function unpack(value){
             console.log('unpack should not be called on GameObject snapshot objects');
             return null;
         }
-        var ret = {};
-        var keys = Object.keys(value);
-        for (var i in keys){
-            var key = keys[i];
+        ret = {};
+        let keys = Object.keys(value);
+        for (let i in keys){
+            let key = keys[i];
             ret[key] = unpack(value[key]);
         }
         
@@ -111,7 +112,7 @@ function is_tower(structure){
 }
 
 define('extension', function(){
-    var ret = Game.rooms.sim.find(FIND_STRUCTURES);
+    let ret = Game.rooms.sim.find(FIND_STRUCTURES);
     return _.filter(ret, is_tower)
     if (ret.length){
         return ret[0];

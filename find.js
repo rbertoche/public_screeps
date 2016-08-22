@@ -9,9 +9,9 @@
 
 module.exports = function find(type, opts){
     ret = [];
-    var keys = Object.keys(Game.rooms);
+    let keys = Object.keys(Game.rooms);
     for (var i in keys){
-        var key = keys[i];
+        let key = keys[i];
         if (Game.rooms[key]){
             ret = ret.concat(Game.rooms[key].find(type, opts));
         }
