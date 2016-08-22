@@ -18,6 +18,9 @@ var recharger_energy, recharger_tower_energy;
 var spawn_filled;
 var wanted, offered;
 var nearFlag;
+var room2;
+var hostile_at_room2, fithers_quota;
+
 
 const default_path_opts = {
     ignoreCreeps: false,
@@ -535,12 +538,6 @@ function my_rooms(s){
     return s && s.pos && _my_rooms.indexOf(s.pos.roomName) !== -1;
 }
 
-var room2 = Game.rooms['W38S59'];
-var hostile_at_room2 = (room2 && room2.find(FIND_HOSTILE_CREEPS).length)
-fighters_quota = 0 + (hostile_at_room2 && 1)
-console.log(fighters_quota)
-//fighters_quota = 1;
-
 module.exports.loop = function () {
     
     healer.update();
@@ -781,14 +778,17 @@ module.exports.loop = function () {
             }
         }
     }
+    room2 = Game.rooms['W38S59'];
+    hostile_at_room2 = (room2 && room2.find(FIND_HOSTILE_CREEPS).length)
+    fighters_quota = 0 + (hostile_at_room2 && 1)
     let role = '';
     if (fighters < fighters_quota){
         role = 'f'
         ret = creep_.create('fighter',
                 [[TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE],
-                 //[TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE],
-                 //[TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE],
-                 //[TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,HEAL,HEAL,HEAL],
+                 [TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE],
+                 [TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE],
+                 [TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,HEAL,HEAL,HEAL],
         ]);
 
     } else if (harvester_work < 20 && harvesters < 6){
