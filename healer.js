@@ -49,10 +49,10 @@ var healer = {
         });
         heal_targets = {};
         urgent_heal_targets = {};
-        let rooms = Object.keys(Game.rooms);
-        for (let room in rooms){
-            heal_targets[room] = heal_targets_all.filter(c => c.pos.roomName == room);
-            urgent_heal_targets[room] = urgent_heal_targets_all.filter(c => c.pos.roomName == room);
+        let filter = room => (c => c.pos.roomName == room);
+        for (let room in Game.rooms){
+            heal_targets[room] = heal_targets_all.filter(filter(room));
+            urgent_heal_targets[room] = urgent_heal_targets_all.filter(filter(room));
         }
         /*
         flag_warriors = find(FIND_MY_CREEPS,{
@@ -79,9 +79,7 @@ var healer = {
 		if (urgent_heal_targets_all.length){
             closest = creep.pos.findClosestByRange(urgent_heal_targets_all) ||
                     (urgent_heal_targets_all.length && urgent_heal_targets_all[0]);
-            if(!creep.pos.isNearTo(closest) || creep.at_exit) {
-                creep.moveTo(closest);
-            }
+            creep.moveTo(closest);
             if (closest){
                 creep.heal(closest);
                 creep.rangedHeal(closest);
@@ -90,9 +88,8 @@ var healer = {
 		} else if (heal_targets_all.length){
 		    closest = creep.pos.findClosestByRange(heal_targets_all) ||
                     (heal_targets_all.length && heal_targets_all[0]);
-		    if(!creep.pos.isNearTo(closest) || creep.at_exit) {
-                creep.moveTo(closest);
-            }
+            creep.moveTo(closest);
+            creep.heal(creep);
             if (closest){
                 creep.heal(closest);
                 creep.rangedHeal(closest);
@@ -119,7 +116,7 @@ var healer = {
 		    return
 		    //console.log('this.rest();');
 		} else {
-	           flag = Game.flags.Flag2;
+	            flag = Game.flags.Flag2;
 		    if (!creep.pos.inRangeTo(flag,2)){
 		        creep.moveTo(flag);
 		    }

@@ -15,16 +15,16 @@ var container_of_source,
     source_container;
 var damaged, damaged_down, damaged_half, stock;
 var recharger_energy, recharger_tower_energy;
-var spawn_filled;
+var spawn_filled, fillers;
 var wanted, offered;
 var nearFlag;
-var room2;
-var hostile_at_room2, fighters_quota;
+var fighters_quota;
+var energy
 
 
 const default_path_opts = {
     ignoreCreeps: false,
-    maxOps: 1000,
+    maxOps: 3000,
     serializePath: true,
 }
 
@@ -107,6 +107,21 @@ function harvest(creep)
 
         if (source){
             creep.harvest(source);
+            let working = false;
+            if (creep_.has(creep, CARRY)){
+                let damaged_ = creep.pos.findInRange(FIND_STRUCTURES, 1, {
+                            filter: s => is_stock(s) && (s.hits < s.hitsMax),
+                });
+                damaged_ = damaged_.concat(creep.pos.findInRange(FIND_CONSTRUCTION_SITES, 2))
+                if (damaged_.length && creep.carry[RESOURCE_ENERGY] >= 50){
+                    if (damaged_[0].progressTotal){
+                        creep.build(damaged_[0])
+                    } else {
+                        creep.repair(damaged_[0], RESOURCE_ENERGY);
+                    }
+                    working = true;
+                }
+            }
             if (!creep.pos.isNearTo(source)){
                 creep.moveTo(source, default_path_opts);
             } else if (container){
@@ -132,7 +147,7 @@ function harvest(creep)
                 pos = creep.room.getPositionAt(x,y);
                 if (!creep.pos.isEqualTo(pos)){
                     creep.moveTo(pos, default_path_opts);
-                } else {
+                } else if (!working){
                     creep.transfer(container, RESOURCE_ENERGY);
                 }
             }
@@ -260,7 +275,10 @@ function recharge(creep)
                 if (creep.pos.inRangeTo(spawn,6)){
                     recharger_energy += creep.carry[RESOURCE_ENERGY];
                     if (recharger_energy < (creep.room.energyCapacityAvailable - creep.room.energyAvailable)){
-                        spawn_filled = true;
+                        fillers += 1;
+                        if (fillers >= 2){
+                            spawn_filled = true;
+                        }
                     }
                 }
                 creep.transfer(spawn, RESOURCE_ENERGY);
@@ -273,9 +291,9 @@ function recharge(creep)
 
 function pickup(creep){
     if (creep_.has(creep, CARRY)){
-        let energy = creep.pos.findInRange(FIND_DROPPED_ENERGY, 1);
-        if (energy.length){
-            creep.pickup(energy[0]);
+        let energy_ = creep.pos.findInRange(FIND_DROPPED_ENERGY, 1);
+        if (energy_.length){
+            creep.pickup(energy_[0]);
             return;
         }
     }
@@ -284,7 +302,7 @@ function pickup(creep){
 
 function procure_filter(s){
     if (s.energy || s.store){
-        return s && (s.energy || s.store[RESOURCE_ENERGY]) + (offered[s.id] || 0) - (wanted[s.id] || 0) > 0;
+        return s && my_rooms(s) && (s.energy || s.store[RESOURCE_ENERGY]) + (offered[s.id] || 0) - (wanted[s.id] || 0) >= 10;
     } else {
         console.log('Procure invalid value: ' + s)
         return false
@@ -294,7 +312,7 @@ function procure_filter(s){
 function procure(creep){
     if (creep_.has(creep, CARRY)){
         let targets = [];
-        let stock_ = [], energy, source_container_, source_container__;
+        let stock_ = [], source_container_, source_container__;
         if (creep.memory.role === 'worker' || (creep.memory.role === 'carrier' &&
                     !spawn_filled )){
             stock_ = stock.filter(procure_filter);
@@ -302,9 +320,11 @@ function procure(creep){
         source_container_ = source_container.filter(procure_filter);
         let storage = source_container_.filter(s => s.structureType === STRUCTURE_STORAGE);
         storage = storage.length && storage[0];
-        energy = find(FIND_DROPPED_ENERGY, {
-            filter: procure_filter
-        });
+        if (energy === undefined){
+            energy = find(FIND_DROPPED_ENERGY, {
+                filter: procure_filter
+            });
+        }
         targets = targets.concat(energy, stock_, source_container_)
         if (creep.memory.role === 'carrier' && targets.length > 1 && storage && spawn_filled){
             targets.splice(targets.indexOf(storage), 1);
@@ -324,21 +344,24 @@ function procure(creep){
         if (!target && targets.length){
             target = targets[0];
         }
-        if (target){
-            wanted[target.id] = (wanted[target.id] || 0) + (creep.carryCapacity - creep.carry[RESOURCE_ENERGY]);
-        }
         
         if (!creep.pos.isNearTo(target)){
             creep.moveTo(target, default_path_opts)
         }
         let ret;
+        let key;
         if (target instanceof Energy){
             ret = creep.pickup(target);
             target = target.pos
+            key = target;
         } else if (target instanceof Structure){
             ret = creep.withdraw(target, RESOURCE_ENERGY);
+            key = target.id
         } else {
             console.log('error',target, targets);
+        }
+        if (target){
+            wanted[key] = (wanted[key] || 0) + (creep.carryCapacity - creep.carry[RESOURCE_ENERGY]);
         }
         if (ret === OK){
             creep.memory.energy_from = memory.pack(target);
@@ -348,11 +371,13 @@ function procure(creep){
     return -1;
 }
 
-function upgrade(creep, lvl)
+function upgrade(creep, lvl, room)
 {
     lvl = lvl || 11;
-    let controller = Game.rooms['W39S59'].controller;
-    if (creep.memory.role === 'worker' && controller && 
+    let controller = Game.rooms[room].controller;
+    if (creep.memory.role === 'worker' && controller &&
+            (memory.upgraders[room].length < 2 ||
+             memory.upgraders[room].indexOf(creep.id) !== -1) &&
             (controller.level < lvl ||
                 controller.ticksToDowngrade < 1500)){
         if (!creep.pos.isNearTo(controller)){
@@ -361,6 +386,9 @@ function upgrade(creep, lvl)
             //opts.ignoreCreeps = true;
             //creep.moveTo(5, 16, opts);
             //creep.moveTo(controller, opts);
+            if (memory.upgraders[room].indexOf(creep.id) === -1){
+                memory.upgraders[room].push(creep.id)
+            }
             creep.moveTo(controller, default_path_opts);
         }
         creep.upgradeController(controller);
@@ -371,6 +399,8 @@ function upgrade(creep, lvl)
 
 const attack_paths = {
     W38S59: ['W38S59'],
+    W37S59: ['W38S59',
+             'W37S59'],
     W39S57: ['W40S59',
              'W40S58',
              'W39S58',
@@ -391,9 +421,9 @@ const attack_paths = {
 
 function fight(creep){
 
-    let target_room = (creep.memory.target_room || 'W39S57');
-    let roomPath = attack_paths[target_room];
-    let healing_room = attack_paths.length > 1 && attack_paths[attack_paths.length - 2] || 'W39S59';
+    let target_room = (creep && creep.memory.target_room || 'W39S57');
+    let attack_path = attack_paths[target_room];
+    let healing_room = (attack_path.length > 1 && attack_path[attack_path.length - 2]) || 'W39S59';
     /*
     let was_hit = creep.hits < (creep.memory.hits || 0);
     creep.memory.hits = creep.hits
@@ -404,6 +434,7 @@ function fight(creep){
             filter: c => creep_.has(c, ATTACK),
         });
     }
+    /*
     if ((Game.time - (Memory.fighter_barrier || 0) < 200 ) && Game.flags.Flag3 && Game.flags.Flag3.room && Game.flags.Flag3.pos.roomName === creep.pos.roomName &&
             nearFlag.length < fighters_quota){
         if (!creep.pos.inRangeTo(Game.flags.Flag3, 5)){
@@ -413,23 +444,34 @@ function fight(creep){
     } else {
         Memory.fighter_barrier = Game.time
     }
+    */
+
+    let heal_target = creep.pos.findClosestByRange(
+                          healer.heal_targets()[creep.pos.roomName])
+    if (creep_.has(creep, HEAL)){
+      if (heal_target) {
+          if (creep.pos.isNearTo(heal_target)){
+              creep.heal(heal_target)
+          } else {
+              creep.moveTo(heal_target)
+              creep.rangedHeal(heal_target)
+          }
+      }
+    }
     
-    if (creep.pos.roomName !== target_room){
-        let index = roomPath.indexOf(creep.pos.roomName)
-        if (index === -1){
-            index = 0;
-        } else {
-            index += 1;
-        }
-        creep.moveTo(new RoomPosition(25, 25, roomPath[index]), default_path_opts);
-    } else {
-        if ((creep.memory.state === STATE_NULL || creep.memory.state === STATE_DELIVERING) &&
-                    creep.hits >= creep.hitsMax * 0.7){
+    if (creep.pos.roomName === target_room ||
+        creep.pos.roomName === healing_room){
+        if ( creep.memory.state === STATE_DELIVERING &&
+                    creep.hits <= creep.hitsMax * 0.95 ){
+            console.log('col')
             creep.memory.state = STATE_COLLECTING;
-        } else if (creep.memory.state === STATE_COLLECTING && creep.hits === creep.hitsMax){
+        } else if ( (creep.memory.state == STATE_NULL ||
+                     creep.memory.state === STATE_COLLECTING ) &&
+                         creep.hits === creep.hitsMax && !heal_target ){
             creep.memory.state = STATE_DELIVERING;
+            console.log('del')
         }
-        if (creep.memory.state === STATE_NULL || creep.memory.state === STATE_DELIVERING) {
+        if (creep.memory.state === STATE_DELIVERING) {
             let enemy_structure = creep.room.find(FIND_HOSTILE_STRUCTURES, {
                 filter: s => s.structureType === STRUCTURE_TOWER,
             });
@@ -447,20 +489,38 @@ function fight(creep){
                     creep.moveByPath(path);
                 }
                 return
+            } else {
+                let pos = new RoomPosition(25, 25, target_room);
+                if (!creep.pos.inRangeTo(pos,20)){
+                    creep.moveTo(pos, default_path_opts);
+                }
             }
-        } else if (creep.memory.state === STATE_COLLECTING){
+
+        } else if (creep.memory.state == STATE_NULL ||
+              creep.memory.state === STATE_COLLECTING){
             let pos = new RoomPosition(25, 25, healing_room);
-            if (!creep.pos.inRangeTo(pos,20)){
+            if (!creep.pos.inRangeTo(pos,22)){
                 creep.moveTo(pos, default_path_opts);
             }
             return
         }
+    } else {
+        let index = attack_path.indexOf(creep.pos.roomName)
+        if (index === -1){
+            index = 0;
+        } else {
+            index += 1;
+        }
+        creep.moveTo(new RoomPosition(25, 25, attack_path[index]), default_path_opts);
+        //creep.moveByPath(creep.pos.findPathTo(new RoomPosition(25, 25, target_room), default_path_opts));
     }
+
     let enemy = creep.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
     if (enemy){
         creep.attack(enemy)
         if (!creep.pos.isNearTo(enemy)){
             creep.moveTo(enemy, default_path_opts);
+            return
         }
     }
 }
@@ -532,6 +592,7 @@ const _my_rooms = [
     'W39S59',
     'W38S59',
     'W37S59',
+    'W37S57',
     ]
 function my_rooms(s){
     return s && s.pos && _my_rooms.indexOf(s.pos.roomName) !== -1;
@@ -539,12 +600,31 @@ function my_rooms(s){
 
 module.exports.loop = function () {
     
+    energy = undefined;
     healer.update();
     claimer.update();
+
+    if (memory.upgraders === undefined){
+        memory.upgraders = {}
+    }
+    var rooms = ['W37S57','W39S59'];
+    for (let i in rooms){
+        let room = rooms[i];
+        if (memory.upgraders[room] === undefined){
+            memory.upgraders[room] = []
+        }
+        for (let i in memory.upgraders[room]){
+            let id = memory.upgraders[room][i]
+            if (memory.unpack(id) === null){
+                memory.upgraders[room].splice(i, 1)
+            }
+        }
+    }
 
     let recycling = false;
     recharger_energy = 0;
     maintenance_count = 0;
+    fillers = 0;
     wanted = {};
     offered = {};
     recharger_tower_energy = {};
@@ -614,6 +694,7 @@ module.exports.loop = function () {
         let container = source.pos.findInRange(FIND_STRUCTURES, 2,{
             filter: is_stock
         });
+        container = container.filter(has_space)
         if (container.length){
             if(source_container.indexOf(container[0]) === -1){
                 source_container.push(container[0]);
@@ -622,22 +703,21 @@ module.exports.loop = function () {
         }
     }
     
-
-    room.createConstructionSite(3, 17, STRUCTURE_LINK);
-    room.createConstructionSite(30, 12, STRUCTURE_LINK);
-    room.createConstructionSite(10, 21, STRUCTURE_TOWER);
-    room.createConstructionSite(24, 4, STRUCTURE_EXTENSION);
-    room.createConstructionSite(24, 10, STRUCTURE_EXTENSION);
-    room.createConstructionSite(24, 8, STRUCTURE_EXTENSION);
-    room.createConstructionSite(24, 6, STRUCTURE_EXTENSION);
-    room.createConstructionSite(23, 7, STRUCTURE_EXTENSION);
-    room.createConstructionSite(23, 9, STRUCTURE_EXTENSION);
-    room.createConstructionSite(23, 5, STRUCTURE_EXTENSION);
-    room.createConstructionSite(22, 4, STRUCTURE_EXTENSION);
-    room.createConstructionSite(22, 10, STRUCTURE_EXTENSION);
-    room.createConstructionSite(22, 8, STRUCTURE_EXTENSION);
-    room.createConstructionSite(22, 6, STRUCTURE_EXTENSION);
-    room.createConstructionSite(21, 7, STRUCTURE_EXTENSION);
+    room2 = Game.rooms['W37S57'];
+    if (room2){
+        room2.createConstructionSite(35, 26, STRUCTURE_TOWER);
+        room2.createConstructionSite(20, 14, STRUCTURE_EXTENSION);
+        room2.createConstructionSite(20, 12, STRUCTURE_EXTENSION);
+        room2.createConstructionSite(20, 18, STRUCTURE_EXTENSION);
+        room2.createConstructionSite(20, 16, STRUCTURE_EXTENSION);
+        room2.createConstructionSite(19, 17, STRUCTURE_EXTENSION);
+        room2.createConstructionSite(19, 11, STRUCTURE_EXTENSION);
+        room2.createConstructionSite(19, 15, STRUCTURE_EXTENSION);
+        room2.createConstructionSite(18, 12, STRUCTURE_EXTENSION);
+        room2.createConstructionSite(18, 18, STRUCTURE_EXTENSION);
+        room2.createConstructionSite(18, 16, STRUCTURE_EXTENSION);
+        room2.createConstructionSite(18, 17, STRUCTURE_EXTENSION);
+    }
     room.createConstructionSite(21, 9, STRUCTURE_EXTENSION);
     room.createConstructionSite(21, 5, STRUCTURE_EXTENSION);
     room.createConstructionSite(20, 4, STRUCTURE_EXTENSION);
@@ -660,16 +740,6 @@ module.exports.loop = function () {
     for (let key in  Game.creeps){
         let creep = Game.creeps[key];
         let state = creep.memory.state;
-        if (creep_.has(creep, HEAL)){
-            let heal_target = creep.pos.findClosestByRange(healer.heal_targets()[creep.pos.roomName])
-            if (heal_target) {
-                if (creep.pos.isNearTo(heal_target)){
-                    creep.heal(heal_target)
-                } else {
-                    creep.rangedHeal(heal_target)
-                }
-            }
-        }
         
         if (creep.memory.recycle){
             recycling = true;
@@ -753,7 +823,10 @@ module.exports.loop = function () {
         } else if ( state === STATE_DELIVERING ){
             
             if (ret){
-                ret = upgrade(creep, 2);
+                ret = upgrade(creep, 2, 'W39S59');
+            }
+            if (ret){
+                ret = upgrade(creep, 10, 'W37S57');
             }
             if (ret){
                 ret = goto_site(creep, near_build_flag);
@@ -767,7 +840,7 @@ module.exports.loop = function () {
             ret &= build_near(creep);
             ret &= repair_near(creep);
             if (ret){
-                ret = upgrade(creep);
+                ret = upgrade(creep, 10, 'W39S59');
             }
             if (ret){
                 ret = recharge(creep);
@@ -788,12 +861,20 @@ module.exports.loop = function () {
         }
     }
     let memory_ = {};
-    room2 = Game.rooms['W38S59'];
-    hostile_at_room2 = (room2 && room2.find(FIND_HOSTILE_CREEPS).length)
-    if (hostile_at_room2){
-        memory_.target_room = room2.name;
+    let towerless_rooms = ['W38S59',
+                           'W38S58',
+                           'W37S57',
+                   ]
+    let hostile_at
+    for (let name in towerless_rooms){
+      let room = Game.rooms[name];
+      hostile_at = room && room.find(FIND_HOSTILE_CREEPS).length;
+      if (hostile_at){
+          memory_.target_room = name;
+          break
+      }
     }
-    fighters_quota = 0 + (hostile_at_room2 && 1)
+    fighters_quota = 0 + (hostile_at || 0)
     let role = '';
     if (fighters < fighters_quota){
         role = 'f'
@@ -801,10 +882,10 @@ module.exports.loop = function () {
                 [[TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE],
                  [TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE],
                  [TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE],
-                 [TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,HEAL,HEAL,HEAL],
+                 [TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,HEAL,HEAL,HEAL],
         ], memory_);
 
-    } else if (harvester_work < 20 && harvesters < 6){
+    } else if (harvester_work < 30 && harvesters < 7){
         role = 'h';
         ret = creep_.create('harvester',
                 [[WORK,WORK,MOVE],
@@ -824,7 +905,7 @@ module.exports.loop = function () {
                  [CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE],
                  [CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE],
         ]);
-    } else if (workers < 4){
+    } else if (workers < 5){
         role = 'w'
         ret = creep_.create('worker',
                 [[WORK,WORK,CARRY,MOVE],
@@ -834,7 +915,7 @@ module.exports.loop = function () {
                  [WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE],
                  [WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE],
         ]);
-    } else if (claimers < 1){
+    } else if (claimers < 2){
         role = 'cl'
         ret = creep_.create('claimer',
                 [[CLAIM,MOVE],
