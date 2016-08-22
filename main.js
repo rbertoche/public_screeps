@@ -471,9 +471,7 @@ function tower_act(tower){
         tower.attack(enemy);
         return
     }
-    let injured = tower.pos.findClosestByRange(FIND_MY_CREEPS, {
-        filter: c => c.hits < c.hitsMax,
-    });
+    let injured = tower.pos.findClosestByRange(healer.heal_targets()[tower.pos.roomName]);
     if (injured){
         tower.heal(injured);
         return
