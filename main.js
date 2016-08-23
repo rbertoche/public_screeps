@@ -940,10 +940,11 @@ module.exports.loop = function () {
                            'W37S58',
                            'W37S57',
                    ]
-    let hostile_at
-    for (let name in towerless_rooms){
-      let room = Game.rooms[name];
-      hostile_at = room && room.find(FIND_HOSTILE_CREEPS).length;
+    let hostile_at;
+    for (let i in towerless_rooms){
+      let name = towerless_rooms[i]
+      let room = Game.rooms[name]
+      hostile_at = room && room.find(FIND_HOSTILE_CREEPS).length
       if (hostile_at){
           memory_.target_room = name;
           break
