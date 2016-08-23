@@ -464,14 +464,14 @@ function fight(creep){
     if (creep.pos.roomName === target_room ||
         creep.pos.roomName === healing_room){
         if ( creep.memory.state === STATE_DELIVERING &&
-                    creep.hits <= creep.hitsMax * 0.95 ){
-            console.log('col')
+                    creep.hits <= creep.hitsMax * 0.8 ){
+            console.log(creep.name, 'retreting')
             creep.memory.state = STATE_COLLECTING;
         } else if ( (creep.memory.state == STATE_NULL ||
                      creep.memory.state === STATE_COLLECTING ) &&
                          creep.hits === creep.hitsMax && !heal_target ){
             creep.memory.state = STATE_DELIVERING;
-            console.log('del')
+            console.log(creep.name, 'moving forward')
         }
         if (creep.memory.state === STATE_DELIVERING) {
             let enemy_structure = creep.room.find(FIND_HOSTILE_STRUCTURES, {
