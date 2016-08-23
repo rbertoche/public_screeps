@@ -594,6 +594,7 @@ const _my_rooms = [
     'W39S59',
     'W38S59',
     'W37S59',
+    'W37S58',
     'W37S57',
     ]
 function my_rooms(s){
@@ -935,7 +936,8 @@ module.exports.loop = function () {
     }
     let memory_ = {};
     let towerless_rooms = ['W38S59',
-                           'W38S58',
+                           'W37S59',
+                           'W37S58',
                            'W37S57',
                    ]
     let hostile_at
