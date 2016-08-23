@@ -771,42 +771,72 @@ module.exports.loop = function () {
     room.createConstructionSite(19, 9, STRUCTURE_EXTENSION);
     room.createConstructionSite(19, 5, STRUCTURE_EXTENSION);
 
-    let workers = 0,
-        carriers = 0,
-        harvesters = 0,
-        fighters = 0,
-        claimers = 0,
-        healers = 0,
-        harvester_work = 0
-        ;
+    let workers = Memory.workers || []
+    let carriers = Memory.carriers || []
+    let harvesters = Memory.harvesters || []
+    let fighters = Memory.fighters || []
+    let claimers = Memory.claimers || []
+    let healers = Memory.healers || []
+
+    let harvester_work = 0
 
     for (let key in  Game.creeps){
         let creep = Game.creeps[key];
-        let state = creep.memory.state;
 
         if (creep.memory.recycle){
             recycling = true;
-            if (!creep.pos.isNearTo(Game.spawns.Spawn1)){
-                creep.moveTo(Game.spawns.Spawn1);
+            let spawn = creep.pos.findClosestByRange(_.values(Game.spawns)) ||
+                              Game.spawns.Spawn1;
+            if (!creep.pos.isNearTo(spawn)){
+                creep.moveTo(spawn)
             }
-            Game.spawns.Spawn1.recycleCreep(creep);
+            spawn.recycleCreep(creep);
             continue
         }
 
         if (creep.memory.role === 'worker'){
-            workers += 1;
+            if (workers.indexOf(creep.id) === -1){
+                workers.push(creep.id)
+            }
         } else if (creep.memory.role === 'carrier'){
-            carriers += 1;
+            if (carriers.indexOf(creep.id) === -1){
+                carriers.push(creep.id)
+            }
         } else if (creep.memory.role === 'harvester'){
-            harvesters += 1;
+            if (harvesters.indexOf(creep.id) === -1){
+                harvesters.push(creep.id)
+            }
             harvester_work += creep_.has(creep,WORK);
         } else if (creep.memory.role === 'fighter'){
-            fighters += 1;
+            if (fighters.indexOf(creep.id) === -1){
+                fighters.push(creep.id)
+            }
         } else if (creep.memory.role === 'healer'){
-            healers += 1;
+            if (healers.indexOf(creep.id) === -1){
+                healers.push(creep.id)
+            }
         } else if (creep.memory.role === 'claimer'){
-            claimers += 1;
+            if (claimers.indexOf(creep.id) === -1){
+                claimers.push(creep.id)
+            }
         }
+    }
+    let worker_count = workers.length,
+        carrier_count = carriers.length,
+        harvester_count = harvesters.length,
+        fighter_count = fighters.length,
+        claimer_count = claimers.length,
+        healer_count = healers.length
+
+    let creeps = workers.concat(carriers,
+                                harvesters,
+                                fighters,
+                                claimers,
+                                healers)
+
+    for (let key in  Game.creeps){
+        let creep = Game.creeps[key];
+        let state = creep.memory.state;
         /*
         if (creep_.has(creep,WORK) && creep_.has(creep,CARRY)){
             workers += 1;
@@ -919,7 +949,7 @@ module.exports.loop = function () {
     }
     fighters_quota = 0 + (hostile_at || 0)
     let role = '';
-    if (fighters < fighters_quota){
+    if (fighter_count < fighters_quota){
         role = 'f'
         ret = creep_.create('fighter',
                 [[TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE],
@@ -928,7 +958,7 @@ module.exports.loop = function () {
                  [TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,HEAL,HEAL,HEAL],
         ], memory_);
 
-    } else if (harvester_work < 30 && harvesters < 7){
+    } else if (harvester_work < 30 && harvester_count < 7){
         role = 'h';
         ret = creep_.create('harvester',
                 [[WORK,WORK,MOVE],
@@ -939,7 +969,7 @@ module.exports.loop = function () {
                  [WORK,WORK,WORK,WORK,WORK,MOVE,MOVE,CARRY],
                  [WORK,WORK,WORK,WORK,WORK,MOVE,MOVE,MOVE,CARRY],
         ]);
-    } else if (carriers < 6){
+    } else if (carrier_count < 6){
         role = 'c'
         ret = creep_.create('carrier',
                 [[CARRY,CARRY,MOVE],
@@ -948,7 +978,7 @@ module.exports.loop = function () {
                  [CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE],
                  [CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE],
         ]);
-    } else if (workers < 5){
+    } else if (worker_count < 6){
         role = 'w'
         ret = creep_.create('worker',
                 [[WORK,WORK,CARRY,MOVE],
@@ -958,13 +988,13 @@ module.exports.loop = function () {
                  [WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE],
                  [WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE],
         ]);
-    } else if (claimers < 2){
+    } else if (claimer_count < 2){
         role = 'cl'
         ret = creep_.create('claimer',
                 [[CLAIM,MOVE],
                  [CLAIM,CLAIM,MOVE,MOVE],
         ]);
-    } else if (healers < 0){
+    } else if (healer_count < 0){
         role = 'he'
         ret = creep_.create('healer', healer.parts);
     }
@@ -984,12 +1014,12 @@ module.exports.loop = function () {
     }
     console.log('' + Object.keys(Game.creeps).length +
                 (role && (' s' + role) || '   ') +
-                ' w' + workers +
-                ' c' + carriers +
-                //' h' + harvesters +
+                ' w' + worker_count +
+                ' c' + carrier_count +
+                //' h' + harvester_count +
                 ' hw' + harvester_work +
-                ' f' + fighters +
-                ' he' + healers +
-                ' cl' + claimers +
+                ' f' + fighter_count +
+                ' he' + healer_count +
+                ' cl' + claimer_count +
                 ' ' + Game.cpu.getUsed().toFixed(2));
 }
