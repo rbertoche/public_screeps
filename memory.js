@@ -60,7 +60,10 @@ function unpack(value){
     } else if (isIterable(value)){
         ret = [];
         for (let k in value){
-            ret.push(unpack(value[k]));
+            let node = unpack(value[k])
+            if (node !== null){
+                ret.push(node)
+            }
         }
         return ret;
     } else if ( typeof value === 'object' ){
@@ -76,7 +79,10 @@ function unpack(value){
         let keys = Object.keys(value);
         for (let i in keys){
             let key = keys[i];
-            ret[key] = unpack(value[key]);
+            let node = unpack(value[key])
+            if (node !== null){
+                ret[key] = unpack(value[key]);
+            }
         }
 
         return ret;
