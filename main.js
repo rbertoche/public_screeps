@@ -60,23 +60,27 @@ function maintenance_near(creep){
     return -1;
 }
 
+const username = 'rber'
+
+function reserved_or_mine(s){
+    if (!s.room){
+        return false
+    } else {
+        let controller = s.room.controller
+        return controller.my || (controller.reservation &&
+                    controller.reservation.username === username)
+    }
+}
 
 function source_filter(creep){
-    return s => s && my_rooms(s) && ((source_work_count[s.id] || 0) + creep_.has(creep, WORK) <= 5);
+    return s => s && my_rooms(s) && reserved_or_mine(s) &&
+                    ((source_work_count[s.id] || 0) +
+                        creep_.has(creep, WORK) <= 5);
 }
 
 function harvest(creep)
 {
     if (creep.memory.role === 'harvester'){
-        let source;
-        /*
-        let taken = _.filter(source_work_count, s => s === creep);
-        if (taken.length){
-            source = creep.pos.findClosestByPath(taken)  || taken.length && taken[0];
-        } else {
-
-        }
-        */
         source = find(FIND_SOURCES, {
                 filter: source_filter(creep),
             })
