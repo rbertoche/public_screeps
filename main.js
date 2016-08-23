@@ -719,6 +719,47 @@ module.exports.loop = function () {
         room2.createConstructionSite(18, 18, STRUCTURE_EXTENSION);
         room2.createConstructionSite(18, 16, STRUCTURE_EXTENSION);
         room2.createConstructionSite(18, 17, STRUCTURE_EXTENSION);
+        room2.createConstructionSite(22, 4, STRUCTURE_RAMPART);
+        room2.createConstructionSite(47, 28, STRUCTURE_RAMPART);
+        room2.createConstructionSite(33, 47, STRUCTURE_RAMPART);
+        room2.createConstructionSite(43, 1, STRUCTURE_RAMPART);
+        room2.createConstructionSite(22, 4, STRUCTURE_ROAD);
+        room2.createConstructionSite(47, 28, STRUCTURE_ROAD);
+        room2.createConstructionSite(33, 47, STRUCTURE_ROAD);
+        room2.createConstructionSite(43, 1, STRUCTURE_ROAD);
+    }
+    if (room2){
+        if (Game.flags.a && Game.flags.b){
+            let c = Game.flags.c.pos
+            let d = c.findClosestByRange(FIND_STRUCTURES, {
+                filter: s => s.structureType === STRUCTURE_ROAD,
+            })
+            d = d && d.pos
+            let a = Game.flags.a.pos;
+            let b = Game.flags.b.pos;
+            //let vertices = [[a,b], [c,d]];
+            //let vertices = [[a,b]];
+            let vertices = []
+            let opts = {}
+            Object.assign(opts, default_path_opts)
+            opts.heuristicWeight = 10000;
+            opts.ignoreCreeps = true;
+            opts.ignoreRoads = true
+            for (let i in vertices){
+                let a = vertices[i][0]
+                let b = vertices[i][1]
+                let path = a.findPathTo(b, opts)
+                //path = [];
+                for (let i in path){
+                    let tile = path[i];
+                    console.log(tile.x,tile.y)
+                    //room2.createConstructionSite(tile.x, tile.y,
+                    //      STRUCTURE_ROAD);
+                    // lets all be friends!! xD
+                }
+            }
+        }
+
     }
     room.createConstructionSite(21, 9, STRUCTURE_EXTENSION);
     room.createConstructionSite(21, 5, STRUCTURE_EXTENSION);
