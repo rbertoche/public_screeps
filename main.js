@@ -28,8 +28,9 @@ const default_path_opts = {
     serializePath: true,
 }
 
-function get_site(creep, filter){
+function get_maintenance(creep, filter){
     let sites = _.filter(Game.constructionSites, filter);
+    sites = sites.concat(_.filter(damaged_down, filter))
     let ret = creep.pos.findClosestByRange(sites);
     if (!ret && sites.length){
         ret = sites[0];
@@ -37,45 +38,23 @@ function get_site(creep, filter){
     return ret;
 }
 
-function get_damaged(creep){
-    return creep.pos.findClosestByRange(damaged);
-}
-function get_near_damaged(creep){
-    let ret = creep.pos.findInRange(damaged,2);
+function get_near_maintenance(creep){
+    let maintenance = damaged.concat(_.values(
+                          Game.constructionSites));
+    let ret = creep.pos.findInRange(maintenance,2);
     return ret.length && ret[0];
 }
 
-function get_damaged_down(creep){
-        /*
-        //var keys = Object.keys();
-        for (let key in Game.structures){
-            let structure = Game.structures[key];
-            if ()
-        }*/
-    let ret = creep.pos.findClosestByRange(damaged_down);
-    return ret || damaged_down.length && damaged_down[0];
-}
-
-function repair_near(creep){
+function maintenance_near(creep){
     if (creep.memory.role === 'worker'){
-        let damaged_ = get_near_damaged(creep);
+        let damaged_ = get_near_maintenance(creep);
         if (damaged_){
-            let ret = creep.repair(damaged_);
-            return ret;
-        }
-    }
-    return -1;
-}
-
-function goto_damaged(creep){
-    if (creep.memory.role === 'worker' && maintenance_count < 2){
-        let damaged_down_ = get_damaged_down(creep);
-        if (damaged_down_){
-            if (!creep.pos.isNearTo(damaged_down_)){
-                creep.moveTo(damaged_down_, default_path_opts)
+            if (damaged_ instanceof ConstructionSite){
+                let ret = creep.build(damaged_);
+            } else {
+                let ret = creep.repair(damaged_);
             }
-            maintenance_count += 1;
-            return;
+            return ret;
         }
     }
     return -1;
@@ -183,14 +162,16 @@ function build_near(creep, filter){
     return -1;
 }
 
-function goto_site(creep, filter){
-    let site = get_site(creep, filter)
+function goto_maintenance(creep, filter){
+    if (filter === undefined){
+        filter = () => { return true }
+    }
+    let site = get_maintenance(creep, filter)
     if (creep.memory.role === 'worker'){
         if (site){
             if(!creep.pos.isNearTo(site)){
                 creep.moveTo(site, default_path_opts);
             }
-            maintenance_count += 1;
             return;
         }
     }
@@ -900,19 +881,18 @@ module.exports.loop = function () {
                 ret = upgrade(creep, 2, 'W39S59');
             }
             if (ret){
+                ret = upgrade(creep, 2, 'W37S57');
+            }
+            if (ret){
+                ret = goto_maintenance(creep, near_build_flag);
+            }
+            if (ret){
+                ret = goto_maintenance(creep);
+            }
+            ret &= maintenance_near(creep);
+            if (ret){
                 ret = upgrade(creep, 10, 'W37S57');
             }
-            if (ret){
-                ret = goto_site(creep, near_build_flag);
-            }
-            if (ret){
-                ret = goto_damaged(creep);
-            }
-            if (ret){
-                ret = goto_site(creep);
-            }
-            ret &= build_near(creep);
-            ret &= repair_near(creep);
             if (ret){
                 ret = upgrade(creep, 10, 'W39S59');
             }
