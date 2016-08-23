@@ -75,7 +75,7 @@ function reserved_or_mine(s){
 function source_filter(creep){
     return s => s && my_rooms(s) && reserved_or_mine(s) &&
                     ((source_work_count[s.id] || 0) +
-                        creep_.has(creep, WORK) <= 5);
+                        creep.has(WORK) <= 5);
 }
 
 function harvest(creep)
@@ -91,7 +91,7 @@ function harvest(creep)
         if (source){
             creep.harvest(source);
             let working = false;
-            if (creep_.has(creep, CARRY)){
+            if (creep.has(CARRY)){
                 let damaged_ = creep.pos.findInRange(FIND_STRUCTURES, 1, {
                             filter: s => is_stock(s) && (s.hits < s.hitsMax),
                 });
@@ -136,7 +136,7 @@ function harvest(creep)
             if (!creep.pos.isEqualTo(pos)){
                     creep.moveTo(pos, default_path_opts);
             }
-            source_work_count[source.id] = (source_work_count[source.id] || 0) + creep_.has(creep, WORK);
+            source_work_count[source.id] = (source_work_count[source.id] || 0) + creep.has(WORK);
             return;
         } else if (Game.rooms['W38S59'] === undefined){
             creep.moveTo(new RoomPosition(2,21, 'W38S59', default_path_opts));
@@ -193,7 +193,7 @@ function stock_filter(to_storage){
 
 function deposit(creep, to_storage)
 {
-    if (creep_.has(creep, CARRY)){
+    if (creep.has(CARRY)){
         if(!spawn_filled){
             console.log('oops, spawn not filled ' + creep.name)
             return -1
@@ -235,7 +235,7 @@ function get_structure(creep, type, filter){
 
 function recharge_tower(creep)
 {
-    if (creep_.has(creep, CARRY)){
+    if (creep.has(CARRY)){
         let tower = get_structure(creep, STRUCTURE_TOWER, s => s.energy < s.energyCapacity);
         if (tower && (recharger_tower_energy[tower.id] || 0) < (tower.energyCapacity - tower.energy)){
             if (!creep.pos.isNearTo(tower)){
@@ -251,7 +251,7 @@ function recharge_tower(creep)
 
 function recharge(creep)
 {
-    if (creep_.has(creep, CARRY)){
+    if (creep.has(CARRY)){
         if (recharger_energy < (creep.room.energyCapacityAvailable - creep.room.energyAvailable)){
             let spawn = get_structure(creep, null, s => s.energy < s.energyCapacity && s.structureType !== STRUCTURE_TOWER &&
                                         s.id !== '57b8a56ffabeea087e9872b5');
@@ -277,7 +277,7 @@ function recharge(creep)
 }
 
 function pickup(creep){
-    if (creep_.has(creep, CARRY)){
+    if (creep.has(CARRY)){
         let energy_ = creep.pos.findInRange(FIND_DROPPED_ENERGY, 1);
         if (energy_.length){
             creep.pickup(energy_[0]);
@@ -297,7 +297,7 @@ function procure_filter(s){
 }
 
 function procure(creep){
-    if (creep_.has(creep, CARRY)){
+    if (creep.has(CARRY)){
         let targets = [];
         let stock_ = [], source_container_, source_container__;
         if (creep.memory.role === 'worker' || (creep.memory.role === 'carrier' &&
@@ -418,7 +418,7 @@ function fight(creep){
 
     if (nearFlag === undefined){
         nearFlag = Game.flags.Flag3 && Game.flags.Flag3.room && Game.flags.Flag3.pos.findInRange(FIND_MY_CREEPS, 5, {
-            filter: c => creep_.has(c, ATTACK),
+            filter: c => c.has(ATTACK),
         });
     }
     /*
@@ -435,7 +435,7 @@ function fight(creep){
 
     let heal_target = creep.pos.findClosestByRange(
                           healer.heal_targets()[creep.pos.roomName])
-    if (creep_.has(creep, HEAL)){
+    if (creep.has(HEAL)){
       if (heal_target) {
           if (creep.pos.isNearTo(heal_target)){
               creep.heal(heal_target)
@@ -792,7 +792,7 @@ module.exports.loop = function () {
             if (harvesters.indexOf(creep.id) === -1){
                 harvesters.push(creep.id)
             }
-            harvester_work += creep_.has(creep,WORK);
+            harvester_work += creep.has(WORK);
         } else if (creep.memory.role === 'fighter'){
             if (fighters.indexOf(creep.id) === -1){
                 fighters.push(creep.id)
@@ -824,13 +824,13 @@ module.exports.loop = function () {
         let creep = Game.creeps[key];
         let state = creep.memory.state;
         /*
-        if (creep_.has(creep,WORK) && creep_.has(creep,CARRY)){
+        if (creep.has(WORK) && creep.has(CARRY)){
             workers += 1;
-        } else if (creep_.has(creep,CARRY)){
+        } else if (creep.has(CARRY)){
             carriers += 1;
-        } else if (creep_.has(creep,WORK)){
+        } else if (creep.has(WORK)){
             harvesters += 1;
-            harvester_work += creep_.has(creep,WORK);
+            harvester_work += creep.has(WORK);
         }*/
 
         if (typeof creep.memory.state !== 'string'){

@@ -57,13 +57,13 @@ var healer = {
         /*
         flag_warriors = find(FIND_MY_CREEPS,{
             filter: function(c){
-                return c && creep_.has(c, ATTACK) && c.pos.inRangeTo(Game.flags.Flag6,6);
+                return c && c.has(ATTACK) && c.pos.inRangeTo(Game.flags.Flag6,6);
             }
         });
         */
         warriors = find(FIND_MY_CREEPS,{
             filter: function(c){
-                return creep_.has(c, ATTACK);
+                return c.has(ATTACK);
             }
         });
     },

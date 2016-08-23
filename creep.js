@@ -6,23 +6,23 @@ function sum_cost(body){
     return _.sum(body.map(part => BODYPART_COST[part.type || part] ));
 }
 
+Creep.prototype.has = function (part){
+    let ret;
+    if (this.memory.has === undefined){
+        this.memory.has = {};
+    }
+    if (this.memory.has[part] === undefined){
+        ret = this.body.filter(p => p.type === part).length;
+        this.memory.has[part] = ret;
+    } else {
+        ret = this.memory.has[part];
+    }
+    return ret;
+}
+
 module.exports = {
 
     sum_cost: sum_cost,
-
-    has: function has(creep, part){
-        let ret;
-        if (creep.memory.has === undefined){
-            creep.memory.has = {};
-        }
-        if (creep.memory.has[part] === undefined){
-            ret = creep.body.filter(p => p.type === part).length;
-            creep.memory.has[part] = ret;
-        } else {
-            ret = creep.memory.has[part];
-        }
-        return ret;
-    },
 
     create: function create(role, bodies, memory){
         let costs = bodies.map(sum_cost);
