@@ -122,18 +122,17 @@ function harvest(creep)
                     working = true;
                 }
             }
-            if (!creep.pos.isNearTo(source)){
-                creep.moveTo(source, default_path_opts);
-            } else if (container){
+            let pos
+            if (container){
                 let x = container.pos.x;
                 let y = container.pos.y;
                 let x_ = ((x + source.pos.x) / 2) - 0.5
                 x = x_.toFixed()
                 let y_ = ((y + source.pos.y) / 2) - 0.5
                 y = y_.toFixed()
-
-                let pos = creep.room.getPositionAt(x,y);
-                if (creep.room.getPositionAt(x,y).lookFor(LOOK_TERRAIN)[0] === 'wall'){
+                pos = source.room.getPositionAt(x,y);
+                if (source.room.getPositionAt(x,y).lookFor(
+                                LOOK_TERRAIN)[0] === 'wall'){
                     if (x == source.pos.x){
                         x = container.pos.x;
                     } else if (y == source.pos.y){
@@ -144,12 +143,15 @@ function harvest(creep)
                         y = source.pos.y;
                     }
                 }
-                pos = creep.room.getPositionAt(x,y);
-                if (!creep.pos.isEqualTo(pos)){
-                    creep.moveTo(pos, default_path_opts);
-                } else if (!working){
+                pos = source.room.getPositionAt(x,y);
+                if (!working){
                     creep.transfer(container, RESOURCE_ENERGY);
                 }
+            } else {
+                pos = source.pos
+            }
+            if (!creep.pos.isEqualTo(pos)){
+                    creep.moveTo(pos, default_path_opts);
             }
             source_work_count[source.id] = (source_work_count[source.id] || 0) + creep_.has(creep, WORK);
             return;
