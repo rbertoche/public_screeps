@@ -946,7 +946,7 @@ module.exports.loop = function () {
                  [TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,HEAL,HEAL,HEAL],
         ], memory_);
 
-    } else if (harvester_work < 30 && harvester_count < 7){
+    } else if (harvester_work < 20 && harvester_count < 7){
         role = 'h';
         ret = creep_.create('harvester',
                 [[WORK,WORK,MOVE],
@@ -976,7 +976,7 @@ module.exports.loop = function () {
                  [WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE],
                  [WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE],
         ]);
-    } else if (claimer_count < 2){
+    } else if (claimer_count < 0){
         role = 'cl'
         ret = creep_.create('claimer',
                 [[CLAIM,MOVE],
