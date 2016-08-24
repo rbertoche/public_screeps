@@ -254,6 +254,7 @@ function recharge(creep)
     if (creep.has(CARRY)){
         if (recharger_energy < (creep.room.energyCapacityAvailable - creep.room.energyAvailable)){
             let spawn = get_structure(creep, null, s => s.energy < s.energyCapacity && s.structureType !== STRUCTURE_TOWER &&
+                            (creep.memory.role !== 'worker' || s.structureType !== STRUCTURE_LINK) &&
                                         s.id !== '57b8a56ffabeea087e9872b5');
             if (spawn){
                 if (!creep.pos.isNearTo(spawn)){
