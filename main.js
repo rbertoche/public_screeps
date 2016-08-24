@@ -24,7 +24,7 @@ var energy
 
 const default_path_opts = {
     ignoreCreeps: false,
-    maxOps: 4000,
+    maxOps: 1000,
     serializePath: true,
 }
 
