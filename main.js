@@ -293,7 +293,7 @@ function pickup(creep){
 
 function procure_filter(s){
     if (s.energy || s.store){
-        return s && my_rooms(s) && (s.energy || s.store[RESOURCE_ENERGY]) + (offered[s.id] || 0) - (wanted[s.id] || 0) >= 10;
+        return s && my_rooms(s) && (s.energy || s.store[RESOURCE_ENERGY]) + (offered[s.id] || 0) - (wanted[s.id] || 0) > 10;
     } else {
         console.log('Procure invalid value: ' + s)
         return false
