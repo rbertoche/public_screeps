@@ -169,6 +169,7 @@ module.exports = {
                     creep.memory.roaming = true
                 } else {
                     creep.memory.roaming = false
+                }
             }
             counters[spawn_name][creep.memory.role] += 1
 
@@ -185,4 +186,4 @@ module.exports = {
             */
         }
     }
-};
+}

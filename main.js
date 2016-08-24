@@ -309,7 +309,7 @@ function procure(creep){
             stock_ = stock.filter(procure_filter);
         }
         if (!creep.memory.roaming){
-            stock_ = stock.filter(s -> s.room.name == Game.spawns[creep.memory.spawn].room.name);
+            stock_ = stock.filter(s => s.room.name == Game.spawns[creep.memory.spawn].room.name);
         }
         source_container_ = source_container.filter(procure_filter);
         let storage = source_container_.filter(s => s.structureType === STRUCTURE_STORAGE);
