@@ -7,12 +7,14 @@
 find = require('find');
 creep_ = require('creep');
 
+/*
 var heal_targets_all;
 var urgent_heal_targets_all;
 var heal_targets;
 var urgent_heal_targets;
 var warriors;
 var flag_warriors;
+*/
 
 var healer = {
     heal_targets: function(){ return heal_targets; },
