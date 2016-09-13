@@ -33,11 +33,11 @@ source_rooms_table.Spawn1.push('W39S59')
 source_rooms_table.Spawn2.push('W37S57')
 source_rooms_table.Spawn3.push('W36S57')
 source_rooms_table.Spawn4.push('W35S58')
+source_rooms_table.Spawn2.splice(source_rooms_table.Spawn2.indexOf('W35S58'), 1)
 
 procure_rooms_table = {}
 Object.assign(procure_rooms_table, towerless_rooms_table)
 procure_rooms_table.Spawn2.splice(procure_rooms_table.Spawn2.indexOf('W35S58'), 1)
-procure_rooms_table.Spawn2.splice(source_rooms_table.Spawn2.indexOf('W35S58'), 1)
 procure_rooms_table.Spawn4.push('W36S58')
 
 population_table_default = {
