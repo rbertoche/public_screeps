@@ -471,7 +471,7 @@ function procure_filter(creep){
                     cutoff = 80
                 }
             }
-            return spawn.my_rooms(s) && (s.id === '57d08adbd208131769567049' || 
+            return spawn.my_rooms(s) && (s.id === '57d08adbd208131769567049' ||
                             !(s.structureType === STRUCTURE_STORAGE) ||
                             (use_storage(s) &&
                                 s.room.name === Game.spawns[creep.memory.spawn].room.name &&

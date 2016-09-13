@@ -34,9 +34,9 @@ Creep.prototype.claimer_action = function(){
         target_ = table[0]
         room = Game.rooms[target_];
         let i = 0
-        //console.log(_.filter(Game.creeps, 
+        //console.log(_.filter(Game.creeps,
         //                c => c.memory.role === 'claimer' && c.memory.target_room == target_))
-        while (room && _.sum(Game.creeps, 
+        while (room && _.sum(Game.creeps,
                             c => c.memory.role === 'claimer' && c.memory.target_room == target_) !== 0 &&
                         i < table.length){
             i+=1;

@@ -139,7 +139,7 @@ StructureSpawn.prototype.create = function (role, bodies, memory){
     // Talvez aconteça de não poder construir nenhum que
     // passe no >=
     // tambem seria bom aceitar sempre que for o unico < capacity
-    if (body && 
+    if (body &&
             (costs[i] > MIN_COST_FACTOR * this.room.energyCapacityAvailable ||
                 i === bodies.length - 1 ||
                 this.counters()[role] === 0)){
@@ -174,7 +174,7 @@ StructureSpawn.prototype.act = function()
     let towerless_rooms = towerless_rooms_table[this.room_name()]
     let source_rooms = source_rooms_table[this.room_name()]
     let spawn_fighter = false;
-    
+
     fighters = find(FIND_MY_CREEPS, {
             filter: c => c.has(ATTACK),
     })
@@ -188,7 +188,7 @@ StructureSpawn.prototype.act = function()
     if (Memory.last_claimer === undefined) {
         Memory.last_claimer = {};
     }
-    
+
     for (let i in towerless_rooms){
         let name = towerless_rooms[i]
         let room = Game.rooms[name]
@@ -245,7 +245,7 @@ StructureSpawn.prototype.act = function()
     }
     let role = '';
     if ((this.counters().fighter < this.population().attacker ||
-                (spawn_fighter && (Game.time - (Memory.last_fighter[this.room_name()] || 0) > 300))) && 
+                (spawn_fighter && (Game.time - (Memory.last_fighter[this.room_name()] || 0) > 300))) &&
                 this.counters().fighter < this.population().fighter){
         role = 'f'
         ret = this.create('fighter',
@@ -513,13 +513,13 @@ function update(){
         }
         */
     }
-    
+
     for (let i in Game.spawns){
         let spawn = Game.spawns[i]
         let room = spawn.room
-        
+
         Memory.upper_limit[room.name] = upper_limits[room.controller.level];
-        
+
         let counters_ = counters[spawn.name]
         while(counters_.fixed_carrier > spawn.population().fixed_carrier &&
                 fixed_carriers[spawn.name].length && fixed_carriers[spawn.name][0]){
