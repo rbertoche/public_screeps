@@ -301,16 +301,18 @@ StructureSpawn.prototype.act = function()
                  [WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE],
         ], memory_);
     } else if (this.counters().claimer < this.population().claimer &&
-                (Game.time - (Memory.last_claimer[this.room_name()] || 0) > 220)){
+                (Game.time - (Memory.last_claimer[this.room_name()] || 0) > 150)){
         role = 'cl'
         /* WTF?
         if (this.room_name() === 'Spawn2' && claimer.spawn()){
             memory_.target_room = 'W36S57'
         } */
-        ret = this.create('claimer',
-                [[CLAIM,MOVE],
-                 [CLAIM,CLAIM,MOVE,MOVE],
-        ], memory_);
+        if (claimer.spawn()){
+            ret = this.create('claimer', [[CLAIM,CLAIM,MOVE,MOVE]], memory_);
+        } else {
+            ret = this.create('claimer', [[CLAIM,MOVE]], memory_);
+        }
+
         if (typeof ret === 'string'){
             Memory.last_claimer[this.room_name()] = Game.time
         }
