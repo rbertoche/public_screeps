@@ -9,6 +9,16 @@ creep_ = require('creep')
 var spawn = require('spawn')
 var spawn__ = spawn
 
+PROFILING = false
+
+if (PROFILING){
+    // Any modules that you use that modify the game's prototypes should be require'd
+    // before you require the profiler.
+    profiler = require('screeps-profiler');
+
+    // This line monkey patches the global prototypes.
+    profiler.enable();
+}
 
 STATE_NULL = '';
 STATE_DELIVERING = 'delivering';
@@ -112,7 +122,15 @@ function update_stock(){
 console.log('reboot')
 update_stock()
 
-module.exports.loop = function () {
+if (PROFILING){
+    module.exports.loop = function() {
+      profiler.wrap(main_loop)
+    }
+} else {
+    main_loop()
+}
+
+function main_loop () {
 
     energy = undefined;
     healer.update();
