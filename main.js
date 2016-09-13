@@ -97,7 +97,7 @@ function tower_act(tower){
             delete Memory.towers[tower.id].damaged
         }
     }
-    if (damaged_half.length){
+    if (spawn.damaged_half.length){
         let damaged_half_ = tower.pos.findClosestByRange(spawn.damaged_half);
         if (damaged_half_){
             tower.repair(damaged_half_);
