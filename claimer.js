@@ -12,7 +12,7 @@ attack = false;
 claim = false;
 done = false;
 spawn = false;
-const target = 'W36S57'
+const target = 'W35S58'
 
 spawn_table = {
     Spawn1: ['W38S59',
@@ -23,6 +23,7 @@ spawn_table = {
              'W37S58',
              'W38S56',
              'W37S55'],
+    Spawn3: ['W36S58'],
 }
 
 module.exports = {
