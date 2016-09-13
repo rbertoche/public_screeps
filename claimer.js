@@ -24,6 +24,7 @@ spawn_table = {
              'W38S56',
              'W37S55'],
     Spawn3: ['W36S58'],
+    Spawn4: ['W35S59'],
 }
 
 Creep.prototype.claimer_action = function(){

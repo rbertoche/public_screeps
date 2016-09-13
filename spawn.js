@@ -24,7 +24,8 @@ towerless_rooms_table = {
              'W37S59',
              'W37S58',
             ],
-    Spawn4: [],
+    Spawn4: ['W35S59',
+            ],
 }
 
 source_rooms_table = {}
@@ -67,19 +68,6 @@ population_table_colony = {
     fighter: 1,
     visitor: 0,
 }
-population_table_colony_1 = {
-    carrier: 4,
-    fixed_carrier: 2,
-    worker: 5,
-    fixed_worker: 5,
-    claimer: 0,
-    harvester: 2,
-    harvester_work: 12,
-    healer: 0,
-    attacker: 0,
-    fighter: 1,
-    visitor: 0,
-}
 
 population_table = {
     Spawn1: {},
@@ -91,11 +79,12 @@ population_table = {
 Object.assign(population_table.Spawn1, population_table_default)
 Object.assign(population_table.Spawn2, population_table_default)
 Object.assign(population_table.Spawn3, population_table_colony)
-Object.assign(population_table.Spawn4, population_table_colony_1)
+Object.assign(population_table.Spawn4, population_table_colony)
 
 population_table.Spawn1.carrier += 2
-// population_table.Spawn2.fixed_carrier += 1
 // population_table.Spawn1.attacker += 3
+// population_table.Spawn2.fixed_carrier += 1
+population_table.Spawn4.fixed_carrier += 1
 
 
 const upper_limits = [
@@ -401,6 +390,7 @@ const _my_rooms = [
     'W40S59',
     'W36S58',
     'W35S58',
+    'W35S59',
     ]
 
 function my_rooms(s){
