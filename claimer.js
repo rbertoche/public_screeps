@@ -26,6 +26,61 @@ spawn_table = {
     Spawn3: ['W36S58'],
 }
 
+Creep.prototype.claimer_action = function(){
+    let table = spawn_table[this.memory.spawn]
+    let target_ = this.memory.target_room
+    let room
+    if (target_ === undefined){
+        target_ = table[0]
+        room = Game.rooms[target_];
+        let i = 0
+        //console.log(_.filter(Game.creeps, 
+        //                c => c.memory.role === 'claimer' && c.memory.target_room == target_))
+        while (room && _.sum(Game.creeps, 
+                            c => c.memory.role === 'claimer' && c.memory.target_room == target_) !== 0 &&
+                        i < table.length){
+            i+=1;
+            target_ = table[i]
+            room = Game.rooms[target_];
+        }
+        if (i == table.length){
+            console.log(this.name, 'has nowhere to claim')
+            return -1
+        } else {
+            this.memory.target_room = target_
+        }
+    } else if (target_ == target){
+        console.log(target_, target, target_ == target)
+        if (!Game.rooms[target]){
+            this.moveTo(new RoomPosition(25,25,target));
+            return
+        }
+        if (done){
+            return;
+        }
+        if (!this.pos.isNearTo(target_controller)){
+            this.moveTo(target_controller);
+        }
+        if (attack && this.body_[CLAIM] >= 5){
+            this.attackController(target_controller)
+        } else if (claim){
+            let ret = this.claimController(target_controller);
+            if (ret == ERR_GCL_NOT_ENOUGH){
+                this.reserveController(target_controller);
+            }
+        }
+    } else {
+        room = Game.rooms[target_]
+    }
+    if (this.pos.roomName !== target_){
+        this.moveTo(new RoomPosition(25,25,target_));
+    } else {
+        this.reserveController(Game.rooms[target_].controller);
+        this.moveTo(Game.rooms[target_].controller);
+    }
+    return;
+}
+
 module.exports = {
     done: function() {return done;},
     spawn: function() {return spawn && !done;},
@@ -66,63 +121,6 @@ module.exports = {
                 claim = true;
             }
         }
-    },
-
-    action: function(creep)
-    {
-        let table = spawn_table[creep.memory.spawn]
-        let target_ = creep.memory.target_room
-        let room
-        if (target_ === undefined){
-            target_ = table[0]
-            room = Game.rooms[target_];
-            let i = 0
-            //console.log(_.filter(Game.creeps, 
-            //                c => c.memory.role === 'claimer' && c.memory.target_room == target_))
-            while (room && _.sum(Game.creeps, 
-                                c => c.memory.role === 'claimer' && c.memory.target_room == target_) !== 0 &&
-                            i < table.length){
-                i+=1;
-                target_ = table[i]
-                room = Game.rooms[target_];
-            }
-            if (i == table.length){
-                console.log(creep.name, 'has nowhere to claim')
-                return -1
-            } else {
-                creep.memory.target_room = target_
-            }
-        } else if (target_ == target){
-            console.log(target_, target, target_ == target)
-            if (!Game.rooms[target]){
-                creep.moveTo(new RoomPosition(25,25,target));
-                return
-            }
-            if (done){
-                return;
-            }
-            if (!creep.pos.isNearTo(target_controller)){
-                creep.moveTo(target_controller);
-            }
-            if (attack && creep.body_[CLAIM] >= 5){
-                creep.attackController(target_controller)
-            } else if (claim){
-                let ret = creep.claimController(target_controller);
-                if (ret == ERR_GCL_NOT_ENOUGH){
-                    creep.reserveController(target_controller);
-                }
-            }
-        } else {
-            room = Game.rooms[target_]
-        }
-        if (creep.pos.roomName !== target_){
-            creep.moveTo(new RoomPosition(25,25,target_));
-        } else {
-            creep.reserveController(Game.rooms[target_].controller);
-            creep.moveTo(Game.rooms[target_].controller);
-        }
-        return;
-
     },
 
 };

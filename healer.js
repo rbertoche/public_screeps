@@ -5,7 +5,6 @@
  */
 
 find = require('find');
-creep_ = require('creep');
 
 /*
 var heal_targets_all;
@@ -15,6 +14,66 @@ var urgent_heal_targets;
 var warriors;
 var flag_warriors;
 */
+
+Creep.prototype.healer_action = function()
+{
+    let hostiles = this.room.find(FIND_HOSTILE_CREEPS);
+    let close_hostiles = _.filter(hostiles, function(c){
+                            return this.pos.inRangeTo(c,1);
+    });
+
+    let closest;
+    if (urgent_heal_targets_all.length){
+        closest = this.pos.findClosestByRange(urgent_heal_targets_all) ||
+                (urgent_heal_targets_all.length && urgent_heal_targets_all[0]);
+        this.moveTo(closest);
+        if (closest){
+            this.heal(closest);
+            this.rangedHeal(closest);
+        }
+        return
+    } else if (heal_targets_all.length){
+        closest = this.pos.findClosestByRange(heal_targets_all) ||
+                (heal_targets_all.length && heal_targets_all[0]);
+        this.moveTo(closest);
+        this.heal(this);
+        if (closest){
+            this.heal(closest);
+            this.rangedHeal(closest);
+        }
+        return
+    /*
+    } else if (flag_warriors.length){
+        let closest = this.pos.findClosestByRange(flag_warriors);
+        if (closest){
+            this.moveTo(closest);
+        } else if (flag_warriors.length){
+            this.moveTo(flag_warriors[0]);
+        }*/
+        //console.log('this.rest();');
+    } else if (warriors.length){
+        //var closest = this.pos.findClosestByRange(warriors);
+        closest = _.sortBy(warriors, c => c.body.length);
+        closest = closest[closest.length - 1];
+        if (closest){
+            this.moveTo(closest);
+        } else if (warriors.length){
+            this.moveTo(warriors[0]);
+        }
+        return
+        //console.log('this.rest();');
+    } else {
+            flag = Game.flags.Flag2;
+        if (!this.pos.inRangeTo(flag,2)){
+            this.moveTo(flag);
+        }
+    }
+    if (close_hostiles.length || this.room.find(FIND_HOSTILE_STRUCTURES, {
+        filter: s => s.structureType == STRUCTURE_TOWER,
+    }).length) {
+        this.moveTo(Game.spawns.Spawn1);
+    }
+}
 
 var healer = {
     heal_targets: function(){ return heal_targets; },
@@ -69,66 +128,6 @@ var healer = {
             }
         });
     },
-
-    action: function(creep)
-    {
-        let hostiles = creep.room.find(FIND_HOSTILE_CREEPS);
-        let close_hostiles = _.filter(hostiles, function(c){
-                                return creep.pos.inRangeTo(c,1);
-        });
-
-    let closest;
-        if (urgent_heal_targets_all.length){
-            closest = creep.pos.findClosestByRange(urgent_heal_targets_all) ||
-                    (urgent_heal_targets_all.length && urgent_heal_targets_all[0]);
-            creep.moveTo(closest);
-            if (closest){
-                creep.heal(closest);
-                creep.rangedHeal(closest);
-            }
-            return
-        } else if (heal_targets_all.length){
-            closest = creep.pos.findClosestByRange(heal_targets_all) ||
-                    (heal_targets_all.length && heal_targets_all[0]);
-            creep.moveTo(closest);
-            creep.heal(creep);
-            if (closest){
-                creep.heal(closest);
-                creep.rangedHeal(closest);
-            }
-            return
-        /*
-        } else if (flag_warriors.length){
-            let closest = creep.pos.findClosestByRange(flag_warriors);
-            if (closest){
-                creep.moveTo(closest);
-            } else if (flag_warriors.length){
-                creep.moveTo(flag_warriors[0]);
-            }*/
-            //console.log('this.rest();');
-        } else if (warriors.length){
-            //var closest = creep.pos.findClosestByRange(warriors);
-            closest = _.sortBy(warriors, c => c.body.length);
-            closest = closest[closest.length - 1];
-            if (closest){
-                creep.moveTo(closest);
-            } else if (warriors.length){
-                creep.moveTo(warriors[0]);
-            }
-            return
-            //console.log('this.rest();');
-        } else {
-                flag = Game.flags.Flag2;
-            if (!creep.pos.inRangeTo(flag,2)){
-                creep.moveTo(flag);
-            }
-        }
-        if (close_hostiles.length || creep.room.find(FIND_HOSTILE_STRUCTURES, {
-            filter: s => s.structureType == STRUCTURE_TOWER,
-        }).length) {
-            creep.moveTo(Game.spawns.Spawn1);
-        }
-    }
 };
 
 module.exports = healer;
