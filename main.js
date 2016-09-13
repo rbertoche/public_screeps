@@ -7,6 +7,7 @@ creep_ = require('creep')
 
 // ???! o var é necessário aqui, talvez devido a alterações no módulo durante a execução
 var spawn = require('spawn')
+var spawn__ = spawn
 
 
 STATE_NULL = '';
@@ -212,7 +213,9 @@ module.exports.loop = function () {
             let near = spawn_.pos.findInRange(FIND_MY_CREEPS, 1)
             if (near.length && near[0] !== undefined){
                 for (let i in near){
-                    spawn_.renewCreep(near[i]);
+                    if (near[i] && spawn__.sum_cost(near[i].body) > 900){
+                        spawn_.renewCreep(near[i])
+                    }
                 }
             }
 
