@@ -1,34 +1,62 @@
 /*
- * creep helper code
+ * Yay now i'm the bigga of em all
  */
+ 
 var spawn = require('spawn')
 healer = require('healer')
 
-const CACHE_TIME_TO_LIVE = 8
+const CACHE_TIME_TO_LIVE = 11
+
+
+
+Creep.prototype.cache_time_to_live = function (n){
+    if (!n){
+        n = 1
+    }
+    // A fixed cache time to live value may cause spikes when some creeps'
+    // cache getting synchronized so that they try to find new targets from
+    // time to time on the same ticks until they change state
+    let salt = Number('0x' + this.id.slice(-1)) % 8
+    return CACHE_TIME_TO_LIVE * n + salt
+}
+
 
 const default_path_opts = {
     ignoreCreeps: false,
     maxOps: 10000,
     serializePath: true,
-    reusePath: 10,
-    heuristicWeight: 1.4,
+    reusePath: 24,
+    heuristicWeight: 1.2,
     //avoid: ['W35S57']
 //    heuristicWeight: 1,
 //    algorithm: 'astar',
 }
 
+Creep.prototype.toString = function () {
+    return '[creep '+ this.name + '/' + this.id.slice(-6) + ']'
+}
+
 Creep.prototype.has = function (part){
     let ret;
-    if (this.memory.has === undefined){
-        this.memory.has = {};
-    }
-    if (this.memory.has[part] === undefined){
-        ret = this.body.filter(p => p.type === part).length;
-        this.memory.has[part] = ret;
+    if (this.memory){
+        if (this.memory.has === undefined){
+            this.memory.has = {};
+        }
+        if (this.memory.has[part] === undefined){
+            ret = this.body.filter(p => p.type === part).length;
+            this.memory.has[part] = ret;
+        } else {
+            ret = this.memory.has[part];
+        }
     } else {
-        ret = this.memory.has[part];
+        ret = this.body.filter(p => p.type === part).length;
     }
     return ret;
+}
+
+Creep.prototype.renewing = function (){
+    return _.some(spawn.spawn_to_spawns[this.memory.spawn],
+        spawn_name => this.id === Memory.renewing[spawn_name])
 }
 
 Creep.prototype.get_maintenance = function (){
@@ -49,13 +77,21 @@ Creep.prototype.get_maintenance = function (){
                    ret.progress !== undefined)
                  && !spawn.is_damaged_down(ret))){
         let sites
+        let priority_sites
         if (!this.memory.roaming){
             sites = spawn.sites[this.memory.spawn];
         } else {
             sites = _.filter(Game.constructionSites, s => s.room);
-            sites = sites.concat(spawn.damaged_down)
+            priority_sites = _.filter(sites, s => s.structureType === STRUCTURE_SPAWN ||
+                                                s.structureType === STRUCTURE_CONTAINER ||
+                                                s.structureType === STRUCTURE_STORAGE ||
+                                                s.structureType === STRUCTURE_EXTENSION ||
+                                                s.structureType === STRUCTURE_TOWER ||
+                                                s.structureType === STRUCTURE_LINK)
+            sites = sites.concat(spawn.damaged_down())
         }
-        ret = this.pos.findClosestByRange(sites);
+        ret = (priority_sites && priority_sites.length && this.pos.findClosestByRange(priority_sites))
+                || this.pos.findClosestByRange(sites)
         if (!ret && sites.length){
             ret = sites[0];
         }
@@ -69,7 +105,7 @@ Creep.prototype.get_maintenance = function (){
 Creep.prototype.get_near_maintenance = function(){
     let ret = this.pos.findInRange(FIND_MY_CONSTRUCTION_SITES, 3)
     let damaged_ = this.pos.findInRange(FIND_STRUCTURES, 3, {
-        filter: spawn.is_damaged
+        filter: spawn.is_damaged_half
     })
     ret = ret.concat(damaged_)
     ret = ret.length && ret[0];
@@ -87,6 +123,30 @@ Creep.prototype.maintenance_near = function(){
                 ret = this.repair(target);
             }
             return ret;
+        }
+    }
+    return -1;
+}
+
+Creep.prototype.goto_maintenance = function(){
+    if (this.memory.role === 'worker'){
+        let site = this.get_maintenance()
+        if (site){
+            enemies = this.pos.findInRange(FIND_HOSTILE_CREEPS, 4, {
+                    filter: c => c.has(RANGED_ATTACK)
+            })
+            enemies_ = this.pos.findInRange(FIND_HOSTILE_CREEPS, 3, {
+                    filter: c => c.has(RANGED_ATTACK)
+            })
+            if (enemies.length === 0 || !enemies[0] ||
+                    !this.pos.inRangeTo(site,3)){
+                if(!this.pos.isNearTo(site)){
+                    this.moveTo(site, default_path_opts);
+                }
+            } else if (enemies_.length && enemies_[0]){
+                this.moveTo(Game.spawns[this.memory.spawn])
+            }
+            return;
         }
     }
     return -1;
@@ -115,12 +175,12 @@ de harvesters roubando lugares uns dos outros tenderão a acontecer
 */
 
 function source_filter(creep){
-    return s => s && spawn.my_rooms(s) && reserved_or_mine(s) &&
-                    s.id !== '579fa9050700be0674d2ea49' &&
+    return s => s && spawn.my_rooms(s) &&
                     ((source_work_count[s.id] || 0) +
-                        creep.has(WORK) <= 6);
-                    spawn.source_rooms_table[creep.memory.spawn].
-                            indexOf(spawn.room_to_spawn[s.room.name]) !== -1;
+                        creep.has(WORK) <= 6) &&
+                    s.id !== '579fa9050700be0674d2ea49' &&
+                    tables.source_rooms()[creep.memory.spawn].
+                            indexOf(s.room.name) !== -1;
 }
 
 const unwanted = [
@@ -131,118 +191,118 @@ Creep.prototype.harvest_ = function()
     if (this.memory.role === 'harvester'){
         let source = Game.getObjectById(this.memory.source)
         if (this.memory.source === undefined || !source_filter(this)(source)){
-            delete this.memory.source
             source = find(FIND_SOURCES, {
                     filter: source_filter(this),
                 })
             source = this.pos.findClosestByPath(source) || source.length && source[0];
             this.memory.source = source.id
+            this.memory.source_pos = source.pos
         }
         let target = source;
         let containers, container
         if (source){
             containers = container_of_source[source.id];
-            containers = containers && containers.filter(has_space)
-            container = containers && (containers[0] || containers.length)
-        }
-
-        if (source){
-            let working = false;
-            let hold = false;
-            if (this.has(CARRY)){
-                let damaged_ = this.pos.findInRange(FIND_STRUCTURES, 1, {
-                            filter: s => is_stock(s) && (s.hits < s.hitsMax),
-                });
-                damaged_ = damaged_.concat(this.pos.findInRange(FIND_MY_CONSTRUCTION_SITES, 2))
-                if (Memory.unwanted_structures !== undefined){
-                    damaged_ = damaged_.filter(s => Memory.unwanted_structures.indexOf(s.id) === -1)
-                }
-                if (damaged_.length){
-                    let ret
-                    if (this.carry[RESOURCE_ENERGY] < this.has(WORK) * 5){
-                        hold = true;
-                    } else if (damaged_[0].progressTotal){
-                        ret = this.build(damaged_[0])
-                    } else {
-                        ret = this.repair(damaged_[0], RESOURCE_ENERGY);
-                    }
-                    working = ret === OK;
-                }
-            }
-            let pos
-            if (container && this.has(CARRY) ){
-                let around_source = source.room.lookForAtArea(LOOK_TERRAIN,
-                                        container.pos.y - 1, container.pos.x - 1,
-                                        container.pos.y + 1, container.pos.x + 1, true)
-                around_source = _.filter(around_source, s => s.terrain !== 'wall')
-                around_source = around_source.map(s => s.x + s.y * 100)
-                let around_container = source.room.lookForAtArea(LOOK_TERRAIN,
-                                        source.pos.y - 1, source.pos.x - 1,
-                                        source.pos.y + 1, source.pos.x + 1, true)
-                around_container = _.filter(around_container, s => s.terrain !== 'wall')
-                around_container = around_container.map(s => s.x + s.y * 100)
-                let intersection = _.intersection(around_source, around_container)
-                if (intersection.length){
-                    let target = this.pos.findClosestByRange(intersection) || intersection.length && intersection[0]
-                    pos = source.room.getPositionAt(target % 100, Math.floor(target / 100));
+            if (containers){
+                containers = containers.filter(has_space)
+                let links = containers.filter(s => s.structureType === STRUCTURE_LINK)
+                if (links.length){
+                    container = links[0]
                 } else {
-                    console.log('Error at source container', container, container.pos)
-                }
-            } else {
-                pos = source.pos
-            }
-            if (!working){
-                this.harvest(source)
-                if (!hold && container){
-                    this.transfer(container, RESOURCE_ENERGY)
+                    container = this.pos.findClosestByRange(containers) || containers[0] || containers.length
                 }
             }
-            if (!this.pos.isEqualTo(pos)){
-                if (this.memory._move && !this.memory._move.path){
-                    delete this.memory._move
-                }
-                this.moveTo(pos, default_path_opts);
-            }
-            source_work_count[source.id] = (source_work_count[source.id] || 0) + this.has(WORK);
-            return;
 
+            if (source.room){
+                let working = false;
+                let hold = false;
+                if (this.has(CARRY)){
+                    let damaged_ = this.pos.findInRange(FIND_STRUCTURES, 1, {
+                                filter: s => is_stock(s) && (s.hits < s.hitsMax),
+                    });
+                    damaged_ = damaged_.concat(this.pos.findInRange(FIND_MY_CONSTRUCTION_SITES, 2))
+                    /*
+                    if (Memory.unwanted_structures !== undefined){
+                        damaged_ = damaged_.filter(s => Memory.unwanted_structures.indexOf(s.id) === -1)
+                    }*/
+                    damaged_ = damaged_.filter(_.negate(spawn.look_for_flag(COLOR_BROWN)))
+                    if (damaged_.length){
+                        let ret
+                        if (this.carry[RESOURCE_ENERGY] < this.has(WORK) * 5){
+                            hold = true;
+                        } else if (damaged_[0].progressTotal){
+                            ret = this.build(damaged_[0])
+                        } else {
+                            ret = this.repair(damaged_[0], RESOURCE_ENERGY);
+                        }
+                        working = ret === OK;
+                    }
+                }
+                let pos
+                if (container && this.has(CARRY)){
+                    if (source.id in Memory.source_pos){
+                        pos = new RoomPosition(
+                            Memory.source_pos[source.id].x,
+                            Memory.source_pos[source.id].y,
+                            Memory.source_pos[source.id].roomName)
+                    }
+                    if (!pos || this.pos.isEqualTo(pos) && (!this.pos.isNearTo(container) || 
+                                                            !this.pos.isNearTo(source))){
+                        let around_source = source.room.lookForAtArea(LOOK_TERRAIN,
+                                                container.pos.y - 1, container.pos.x - 1,
+                                                container.pos.y + 1, container.pos.x + 1, true)
+                        around_source = _.filter(around_source, s => s.terrain !== 'wall')
+                        around_source = around_source.map(s => s.x + s.y * 100)
+                        let around_container = source.room.lookForAtArea(LOOK_TERRAIN,
+                                                source.pos.y - 1, source.pos.x - 1,
+                                                source.pos.y + 1, source.pos.x + 1, true)
+                        around_container = _.filter(around_container, s => s.terrain !== 'wall')
+                        around_container = around_container.map(s => s.x + s.y * 100)
+                        let intersection = _.intersection(around_source, around_container)
+                        if (intersection.length){
+                            let target = this.pos.findClosestByRange(intersection) || intersection.length && intersection[0]
+                            pos = source.room.getPositionAt(target % 100, Math.floor(target / 100));
+                        } else {
+                            console.log('Error at source container', container, container.pos)
+                        }
+                        Memory.source_pos[source.id] = pos
+                    }
+                } else {
+                    pos = source.pos
+                }
+                if (!working){
+                    this.harvest(source)
+                    if (!hold && container){
+                        this.transfer(container, RESOURCE_ENERGY)
+                    }
+                }
+                if (!this.pos.isEqualTo(pos)){
+                    if (this.memory._move && !this.memory._move.path){
+                        delete this.memory._move
+                    }
+                    this.moveTo(pos, default_path_opts);
+                }
+                source_work_count[source.id] = (source_work_count[source.id] || 0) + this.has(WORK);
+                return;
+
+            } else if (this.memory.source_pos !== undefined){
+                this.moveTo(new RoomPosition(
+                    this.source_pos.x,
+                    this.source_pos.y,
+                    this.source_pos.roomName))
+            }
         } else {
             /* Just waiting for the visitor is working better
              * if harvesters had target_rooms, we could get something like
              * this visit code to work
              */
-            for (let i in spawn.source_rooms_table[this.memory.spawn]){
-                var name = spawn.source_rooms_table[this.memory.spawn][i]
+            for (let i in tables.source_rooms()[this.memory.spawn]){
+                var name = tables.source_rooms()[this.memory.spawn][i]
                 if (Game.rooms[name] === undefined){
                     this.moveTo(new RoomPosition(25,25, name, default_path_opts));
                     return
                 }
             }
-            /*
-            if (!this.pos.inRangeTo(Game.flags.Flag1, 4)){
-                this.moveTo(Game.flags.Flag1, default_path_opts);
-            }
-            */
             console.log(this.name, 'at', this.pos, 'cant find source')
-        }
-    }
-    return -1;
-}
-
-Creep.prototype.goto_maintenance = function(){
-    if (this.memory.role === 'worker'){
-        let site = this.get_maintenance()
-        if (site){
-            enemies = this.pos.findInRange(FIND_HOSTILE_CREEPS, 4)
-            enemies_ = this.pos.findInRange(FIND_HOSTILE_CREEPS, 3)
-            if ((enemies.length === 0 || !enemies[0])){
-                if(!this.pos.isNearTo(site)){
-                    this.moveTo(site, default_path_opts);
-                }
-            } else if (enemies_.length && enemies_[0]){
-                this.moveTo(this.room.getPositionAt(25,25))
-            }
-            return;
         }
     }
     return -1;
@@ -259,38 +319,50 @@ function has_space(s, space){
         console.log('has_space shouldn\'t be called with', s)
     }
     return s && - amount - (offered[s.id] || 0)
-                + (wanted[s.id] || 0) + (s.storeCapacity || s.energyCapacity) > (space || 0);
+                + (wanted[s.id] || 0) + (s.storeCapacity || s.energyCapacity) >= (space || 5);
 }
 
 function has_some_space(s){
-    return has_space(s, 60)
+    return has_space(s, 40)
 }
 
 function stock_filter(creep, to_other_room){
+    // TODO: Permitir usar source_containers como source condicionalmente
     return s => s && has_space(s) && (Game.spawns[creep.memory.spawn].room.name === s.room.name ||
                                         to_other_room) &&
-                                        (!s.pos.findInRange(FIND_SOURCES, 2).length
-                                        || (s.structureType === STRUCTURE_STORAGE &&
-                                            !use_storage(s)))
+                                        (!s.pos.findInRange(FIND_SOURCES, 2).length ||
+                                            (s.id === '57b48aac2231a7092e38520b' &&
+                                                true))
+                                                //!use_storage(s)))
 }
 
-Creep.prototype.deposit = function ()
+storage_1 = Game.getObjectById('57b48aac2231a7092e38520b')
+
+Creep.prototype.deposit = function (force)
 {
     if (this.has(CARRY)){
-        if (!this.memory.roaming && !room_filled(this.memory.spawn)){
+        if (!this.memory.roaming && !spawn.room_filled(this.memory.spawn) && !force){
             return -1;
+        } else if (force){
+            console.log(this.name, 'forcing deposit')
         }
 
         let stock_ = this.memory.stock !== undefined && memory.get(this.memory, 'stock');
         if (this.memory.stock === undefined || !stock_filter(this)(stock_)){
             stock_ = stock.filter(stock_filter(this));
-            //if (!to_storage){
-            stock_ = stock_.filter(s => this.memory.energy_from !== s.id);
-            if (stock_.length === 0 && this.memory.spawn === 'Spawn1' &&
-                                        this.memory.role === 'carrier' &&
-                                        this.memory.roaming){
-                stock_ = stock.filter(stock_filter(this, true));
-                stock_ = stock_.filter(s => this.memory.energy_from !== s.id);
+            stock_ = stock_.filter(s => this.memory.energy_from !== s.id)
+            // No Spawn1 os harvester trasnferem pro storage
+            if (this.memory.spawn === 'Spawn1' &&
+                    stock_.length === 0 &&
+                    this.memory.role === 'carrier' &&
+                    this.memory.roaming &&
+                    storage_1 &&
+                    (force || !use_storage(storage_1))){
+                if (storage_1){
+                    stock_.push(storage_1)
+                }
+                //stock_ = stock.filter(stock_filter(this, true));
+                //stock_ = stock_.filter(s => this.memory.energy_from !== s.id);
             }
 
             //}
@@ -324,16 +396,17 @@ Creep.prototype.get_structure = function(type, filter){
 }
 
 function tower_filter(creep){
-    return s => has_some_space(s) &&
+    return s => has_space(s, 120) &&
                     Game.spawns[creep.memory.spawn].room.name === s.room.name;
 }
 
 Creep.prototype.recharge_tower = function()
 {
-    if (this.has(CARRY)){
+    if (this.has(CARRY) &&
+            this.room.name === Game.spawns[this.memory.spawn].room.name){
         let target = Game.getObjectById(this.memory.tower)
         if (this.memory.tower === undefined ||
-                room_filled_transition[this.memory.spawn] ||
+                spawn.room_filled_transition[this.memory.spawn] ||
                 (target !== null && !tower_filter(this)(target)) ||
                 (this.memory.expires_t || 0) < Game.time){
             target = this.get_structure(STRUCTURE_TOWER, tower_filter(this))
@@ -342,15 +415,19 @@ Creep.prototype.recharge_tower = function()
             } else {
                 this.memory.tower = null
             }
-            this.memory.expires_t = Game.time + CACHE_TIME_TO_LIVE
+            this.memory.expires_t = Game.time + this.cache_time_to_live()
         }
-        if (target && (recharger_tower_energy[target.id] || 0) < (target.energyCapacity - target.energy)){
+        if (target && (offered[target.id] || 0) <
+                (target.energyCapacity - target.energy)){
             if (!this.pos.isNearTo(target)){
                 this.moveTo(target, default_path_opts);
             }
-            recharger_tower_energy[target.id] = (recharger_tower_energy[target.id] || 0) + this.carry[RESOURCE_ENERGY];
             let ret = this.transfer(target, RESOURCE_ENERGY);
             offered[target.id] = (offered[target.id] || 0) + this.carry[RESOURCE_ENERGY];
+            if ((offered[target.id] || 0) >
+                    (target.energyCapacity - target.energy)){
+                spawn.tower_filled()[this.memory.spawn] = true;
+            }
             //if (ret === OK){
                 //this.memory.stock_done = true
             //}
@@ -368,15 +445,17 @@ function link_filter(creep){
                         Game.spawns[creep.memory.spawn].room.name === s.room.name &&
                                     s.id !== '57b8a56ffabeea087e9872b5' &&
                                     s.id !== '57c2a7a2af63961028cf6e54' &&
-                                    s.id !== '57d2f495d6eac16a7294db44'
+                                    s.id !== '57d2f495d6eac16a7294db44' &&
+                                    s.id !== '57da20f48e9ccf7c4ad84e0f'
 }
 
 Creep.prototype.recharge_link = function()
 {
-    if (this.has(CARRY)){
+    if (this.has(CARRY) &&
+            this.room.name === Game.spawns[this.memory.spawn].room.name){
         let target = Game.getObjectById(this.memory.link)
         if (this.memory.link === undefined ||
-                room_filled_transition[this.memory.spawn] ||
+                spawn.room_filled_transition[this.memory.spawn] ||
                 (target !== null && !link_filter(this)(target)) ||
                 (this.memory.expires_l || 0) < Game.time){
             target = this.get_structure(STRUCTURE_LINK, link_filter(this))
@@ -393,6 +472,10 @@ Creep.prototype.recharge_link = function()
             }
             let ret = this.transfer(target, RESOURCE_ENERGY);
             offered[target.id] = (offered[target.id] || 0) + this.carry[RESOURCE_ENERGY];
+            if ((offered[target.id] || 0) >
+                    (target.energyCapacity - target.energy)){
+                spawn.link_filled()[this.memory.spawn] = true;
+            }
             //if (ret === OK){
                 //this.memory.stock_done = true
             //}
@@ -405,18 +488,21 @@ Creep.prototype.recharge_link = function()
 function recharge_filter(creep){
     return s => s && (s.structureType === STRUCTURE_SPAWN ||
                 s.structureType === STRUCTURE_EXTENSION) &&
+            (s.id !== this.memory.recharge ||
+                (this.memory.expires_r || 0) < Game.time) &&
             creep.pos.inRangeTo(s, 18) &&
-            has_space(s) &&
+            has_space(s, 20) &&
             s.isActive() &&
             Game.spawns[creep.memory.spawn].room.name === s.room.name
 }
 
 Creep.prototype.recharge = function()
 {
-    if (this.has(CARRY)){
+    if (this.has(CARRY) &&
+            this.room.name === Game.spawns[this.memory.spawn].room.name){
         let target = Game.getObjectById(this.memory.recharge)
         if (this.memory.recharge === undefined ||
-                room_filled_transition[this.memory.spawn] ||
+                spawn.room_filled_transition[this.memory.spawn] ||
                 (target !== null && !recharge_filter(this)(target)) ||
                 (this.memory.expires_r || 0) < Game.time){
             target = this.get_structure(null, recharge_filter(this))
@@ -425,7 +511,7 @@ Creep.prototype.recharge = function()
             } else {
                 this.memory.recharge = null
             }
-            this.memory.expires_r = Game.time + CACHE_TIME_TO_LIVE
+            this.memory.expires_r = Game.time + this.cache_time_to_live()
         }
         if (target){
             if (!this.pos.isNearTo(target)){
@@ -461,9 +547,9 @@ function procure_filter(creep){
             if (s.amount !== undefined){
                 key = energy_key(s)
                 amount = s.amount
-                cutoff = 10
+                cutoff = 25
             } else {
-                amount = s.store && s.store[RESOURCE_ENERGY] || s.energy
+                amount = (s.store !== undefined && s.store[RESOURCE_ENERGY]) || s.energy || 0
                 key = s.id
                 if (s.structureType === STRUCTURE_LINK){
                     cutoff = 0
@@ -471,12 +557,21 @@ function procure_filter(creep){
                     cutoff = 80
                 }
             }
+            return spawn.my_rooms(s) && 
+                        ((s.structureType !== STRUCTURE_STORAGE &&
+                            s.structureType !== STRUCTURE_TERMINAL) ||
+                            amount > 50000 || 
+                            s.room.name === Game.spawns[creep.memory.spawn].room.name) &&
+                    amount - (wanted[key] || 0) > cutoff
+                    //amount + (offered[key] || 0) - (wanted[key] || 0) > cutoff
+            /*
             return spawn.my_rooms(s) && (s.id === '57d08adbd208131769567049' ||
                             !(s.structureType === STRUCTURE_STORAGE) ||
                             (use_storage(s) &&
                                 s.room.name === Game.spawns[creep.memory.spawn].room.name &&
                                 !creep.memory.roaming)) &&
                         amount + (offered[key] || 0) - (wanted[key] || 0) > cutoff
+            */
         } else {
             //console.log('Procure invalid value: ' + s)
             return false
@@ -525,18 +620,17 @@ Creep.prototype.procure = function(){
         if (this.memory.procure === undefined ||
                 !procure_filter(this)(Game.getObjectById(this.memory.procure)) ||
                 cache_expired){
-            let targets = [];
             let stock_ = [], source_container_, source_container__;
-            if (this.memory.role === 'worker' || (this.memory.role === 'carrier' &&
-                        !this.memory.roaming &&
-                        !room_filled(this.memory.spawn))){
-                            // Não deveria depender de room_filled, e sim de ter
-                            // passado em todos os recharge sem pegar alvo
+            if (this.memory.role === 'worker'){
                 stock_ = stock.filter(procure_filter(this));
-                stock_ = stock_.filter(only_spawn_room(this))
+                // stock_ = stock_.filter(only_spawn_room(this))
             }
             source_container_ = source_container.filter(procure_filter(this));
-            stock_ = stock_.filter(only_spawn_room(this))
+            /*
+            if (this.memory.role === 'carrier'){
+                stock_ = stock_.filter(only_spawn_room(this))
+            }
+            */
             let energy_
             if (energy === undefined){
                 energy_ = find(FIND_DROPPED_ENERGY, {
@@ -545,12 +639,21 @@ Creep.prototype.procure = function(){
             }
             if (this.memory.roaming && this.memory.role === 'carrier'){
                 source_container_ = source_container_.filter(
-                            s => spawn.procure_rooms_table[this.memory.spawn].indexOf(s.room.name) !== -1);
+                            s => tables.procure_rooms()[this.memory.spawn].indexOf(s.room.name) !== -1);
                 energy_ = energy_.filter(
-                            s => spawn.procure_rooms_table[this.memory.spawn].indexOf(s.room.name) !== -1);
+                            s => tables.procure_rooms()[this.memory.spawn].indexOf(s.room.name) !== -1);
+            }
+            
+            if (((!spawn.room_filled(this.memory.spawn)) ||
+                            (this.memory.role === 'carrier' &&
+                                !this.memory.roaming)) &&
+                        energy_.length === 0 &&
+                        source_container_.length === 0){
+                stock_ = stock.filter(procure_filter(this))
+                stock_ = stock_.filter(only_spawn_room(this))
             }
 
-            targets = targets.concat(energy_, stock_, source_container_)
+            let targets = energy_.concat(stock_, source_container_)
 
             if (this.memory.role === 'worker'){
                 let link = this.get_structure(STRUCTURE_LINK);
@@ -561,10 +664,12 @@ Creep.prototype.procure = function(){
                         targets.push(link);
                     }
                 }
+                /* Why??!
                 let targets_here = targets.filter(s => s && s.room.name === this.room.name)
                 if (targets_here.length && targets_here[0]){
                     targets = targets_here
-                }
+                } 
+                */
                 //console.log(' 1 ' + targets)
             }
             if (!this.memory.roaming){
@@ -593,9 +698,9 @@ Creep.prototype.procure = function(){
             if (target){
                 this.memory.procure = target.id;
                 if (this.memory.role === 'worker'){
-                    this.memory.expires_p = Game.time + CACHE_TIME_TO_LIVE
+                    this.memory.expires_p = Game.time + this.cache_time_to_live()
                 } else {
-                    this.memory.expires_p = Game.time + CACHE_TIME_TO_LIVE * 3
+                    this.memory.expires_p = Game.time + this.cache_time_to_live(3)
                 }
             } else {
                 return -1
@@ -623,32 +728,44 @@ Creep.prototype.procure = function(){
         }
         if (ret === OK){
             delete this.memory.procure;
-            this.memory.energy_from = memory.pack(target);
+            this.memory.energy_from = target.id;
         }
         return
     }
     return -1;
 }
 
-Creep.prototype.upgrade = function(lvl, room)
+default_max_upgraders = 99
+
+max_upgraders_table = {
+    W33S58: 1,
+}
+
+
+Creep.prototype.upgrade = function(lvl, room_name)
 {
     lvl = lvl || 11;
-    if (room === undefined){
+    let room
+    if (room_name === undefined){
         room = Game.spawns[this.memory.spawn].room
-    } else if (typeof room === 'string'){
-        let name = room
-        room = Game.rooms[name]
+    } else if (typeof room_name === 'string'){
+        room = Game.rooms[room_name]
         if (room === undefined){
-            console.log('Error: room', name, 'not found')
+            console.log('Error: room', room_name, 'not found')
             return -1;
         }
     }
     let controller = room.controller
-    if (this.memory.role === 'worker' && controller &&
+    if (this.memory.role === 'worker' &&
+            controller &&
+            (upgraders[controller.id] || 0) < 
+                (max_upgraders_table[room.name] || default_max_upgraders) &&
             //(memory.upgraders[room].length < 2 ||
             // memory.upgraders[room].indexOf(this.id) !== -1) &&
             (controller.level < lvl ||
                 controller.ticksToDowngrade < 3000)){
+        // console.log(this.name, controller.id)
+        upgraders[controller.id] = (upgraders[controller.id] || 0 ) + 1
         if (!this.pos.isNearTo(controller)){
             //let opts = {}
             //Object.assign(opts, default_path_opts)
@@ -692,6 +809,26 @@ const attack_paths = {
 }
 
 */
+
+
+Creep.prototype.move_by_room_path = function(path){
+    // O ideal seria um dicionario e incluir posicoes x y arbitrarias nos
+    // valores, ja que
+    // - não é necessário que cada sala aponte para a próxima
+    // - escolher os pontos pode deixar os caminhos mais curtos
+    let index = path.indexOf(this.pos.roomName)
+    if (index === -1){
+        index = 0;
+    } else {
+        index += 1
+    }
+    if (index === path.length){
+        index = 0
+    }
+    let pos = new RoomPosition(25, 25, path[index])
+    this.moveTo(pos)
+}
+
 
 Creep.prototype.fight = function(){
 
@@ -770,15 +907,32 @@ Creep.prototype.fight = function(){
         }
     }
     */
+    let heal_target
+    let enemy
+    let target_enemy
     let pos = new RoomPosition(25, 25, target_room)
 
-    let enemy = this.pos.findClosestByRange(FIND_HOSTILE_CREEPS, {
+    // TODO: decent ally code
+    // with damage detection blacklisting
+    enemy = this.pos.findClosestByRange(FIND_HOSTILE_CREEPS, {
         filter: c => c.owner.username !== 'Muddal',
+        // &&
+        //            (!c.has(WORK) || c.has(ATTACK) || c.has(HEAL) || c.has(RANGED_ATTACK)),
     });
 
-    let heal_target = this.pos.findClosestByRange(
+    if (!enemy){
+        heal_target = this.pos.findClosestByRange(
                           healer.heal_targets()[this.pos.roomName]) ||
                           healer.heal_targets_all().length && healer.heal_targets_all()[0]
+    }
+    if (!enemy && !heal_target){
+        if (Game.rooms[target_room] !== undefined){
+            target_enemy = Game.rooms[target_room].find(FIND_HOSTILE_CREEPS)
+            if (target_enemy.length){
+                pos = target_enemy[0].pos
+            }
+        }
+    }
     let ret
     //if (this.has(HEAL) && heal_target) {
     if (this.has(HEAL) && heal_target && !this.pos.isNearTo(enemy)){
@@ -788,8 +942,20 @@ Creep.prototype.fight = function(){
             ret = this.rangedHeal(heal_target)
         }
     }
-    if (enemy){
+    // TODO: Detect damage and add a blacklist to attack anywhere
+    if (enemy && spawn.my_rooms(this)){
         console.log('enemy')
+        if (!this.pos.isNearTo(enemy)){
+            this.moveTo(enemy, default_path_opts);
+        } else {
+        // Maybe consider how much damage in the heal target?
+        //} else if(ret !== OK) {
+            this.attack(enemy)
+        }
+        return
+    } else if (hostile_creeps && hostile_creeps.length){
+        enemy = hostile_creeps[0]
+        console.log('hostile creep there at ', enemy.pos)
         if (!this.pos.isNearTo(enemy)){
             this.moveTo(enemy, default_path_opts);
         } else {
@@ -817,8 +983,7 @@ Creep.prototype.fight = function(){
         this.moveTo(pos, default_path_opts)
 
     } else {
-        console.log(this.name, 'done')
-        this.memory.done = false
+        this.memory.done = true
         if (this.has(HEAL) && heal_target) {
             if (!this.pos.isNearTo(heal_target)){
                 this.moveTo(heal_target)
@@ -838,25 +1003,46 @@ idle_flag ={
     Spawn2: 'Flag4',
     Spawn3: 'Flag5',
     Spawn4: 'Flag6',
+    Spawn5: 'Flag3',
+    Spawn7: 'Flag7',
 }
 Creep.prototype.idle = function(){
-    spawn.counters[this.memory.spawn].idle += 1
-
     if ((this.memory.expires_i || 0) < Game.time){
-        this.memory.expires_i = Game.time + 3
+        this.memory.expires_i = Game.time + this.cache_time_to_live(2)
     }
-    flag = Game.flags[idle_flag[this.memory.spawn]];
-    if (flag && !this.pos.inRangeTo(flag,4)){
-        this.moveTo(flag, default_path_opts);
+    if (this.memory.role !== 'carrier'){
+        let message = this.memory.role + ' ' + this.name + ' at ' + this.pos +
+                        ' from spawn ' + this.memory.spawn + ' is idle\n'
+        console.log(message)
+        if (this.memory.role === 'worker'){
+            spawn.counters[this.memory.spawn].idle_workers += 1
+        }
+        // Game.notify(message, 50)
+    }
+    if (!this.memory.state || this.memory.state === 'delivering'){
+        // Idle delivering na verdade significa que não há onde
+        // colocar a energia que o creep está carregando.
+        ret = this.deposit(true)
+        if (ret){
+            console.log(this.name, 'the' , this.memory.role, 'at', this.pos, 'has nowhere to put his carry', JSON.stringify(this.carry))
+            // Aqui estamos de fato idle, pois não há o que fazer com o carry
+            spawn.counters[this.memory.spawn].idle_delivering += 1
+        }
+    } else if (this.memory.state === 'collecting'){
+        // Aqui estamos idle por não achar energia
+        spawn.counters[this.memory.spawn].idle += 1
+        flag = Game.flags[idle_flag[this.memory.spawn]];
+        if (flag && !this.pos.inRangeTo(flag,4)){
+            this.moveTo(flag, default_path_opts);
+        }
+    } else {
+        console.log(this.name, 'at', this.pos, 'at state', this.memory.state, 'is idle... ?!?!?')
     }
     return;
 }
 
 function is_stock(s){
-    return (s.structureType === STRUCTURE_CONTAINER ||
-            s.structureType === STRUCTURE_STORAGE ||
-            s.structureType === STRUCTURE_TERMINAL ) &&
-            s.storeCapacity;
+    return s.storeCapacity// && !spawn.look_for_flag(COLOR_BROWN, s)
 }
 
 function near_build_flag(s) {
@@ -882,7 +1068,13 @@ Creep.prototype.evade_exit = function(){
 }
 
 Creep.prototype.evade_road = function(){
+    return -1
     let over_road = this.pos.lookFor(LOOK_STRUCTURES);
+    // _.negate(_.matches({'type': 'terrain', 'terrain': 'wall'}))
+    // let n = this.room.lookAtArea(this.pos.y - 1, this.pos.x - 1,
+    //                              this.pos.y + 1, this.pos.x + 1)
+    // _.remove(n, s => _.some(s, {'type': 'terrain', 'terrain': 'wall'}) || 
+    //                     _.some(s, {'type': 'structure', 'structure': {'structureType': STRUCTURE_WALL}}))
     let pos = this.room.getPositionAt(25,25)
     if (over_road.length && over_road[0]){
         if (!this.pos.inRangeTo(pos,13)){
@@ -905,21 +1097,99 @@ Creep.prototype.evade_road = function(){
     return OK
 }
 
-function room_filled(spawn){
-    return spawn_filled[spawn] &&
-           tower_filled[spawn] &&
-           link_filled[spawn]
-}
-
 function use_storage(s){
-    return !room_filled(spawn.room_to_spawn[s.room.name]) ||
-                s.store[RESOURCE_ENERGY] > 300E3
+    return !spawn.room_filled(spawn.room_to_spawn[s.room.name]) ||
+                s.store[RESOURCE_ENERGY] > 800E3
 }
 
+function update() {
+    wanted = {}
+    offered = {}
+    upgraders = {}
+    source_work_count = {}
+    container_of_source = {};
+    source_container = [];
+    hostile_creeps = find(FIND_HOSTILE_CREEPS)
+    hostile_creeps = hostile_creeps.filter(spawn.my_rooms)
+    let sources = find(FIND_SOURCES, {
+        filter: spawn.my_rooms,
+    });
+    for (let key in sources){
+        let source = sources[key];
+        let container = source.pos.findInRange(FIND_STRUCTURES, 2,{
+            //filter: is_stock,
+            filter: s => is_stock(s) || s.structureType === STRUCTURE_LINK,
+        });
+        if (source.id === '579fa9050700be0674d2ea49'){
+            continue
+        }
+        if (Memory.source_pos === undefined){
+            Memory.source_pos = {}
+        }
+        if (container.length && container[0] !== undefined){
+            /*
+            if (Memory.unwanted_structures !== undefined){
+                container = container.filter(s => Memory.unwanted_structures.indexOf(s.id) === -1)
+            }*/
+            /*
+            for (let i in container){
+                if (container[i].structureType === STRUCTURE_STORAGE &&
+                        !use_storage(container[i])){
+                    container.splice(i,1)
+                    console.log('use', container[i], 'at', container[i]&& container[i].pos)
+                }
+            }
+            */
+
+            container_of_source[source.id] = container
+            source_container = source_container.concat(container)
+        }
+        if (Game.time % 50 === 7 &&
+                !_.some(container, has_space) &&
+                container.length < 2 &&
+                source.pos.findInRange(FIND_MY_CONSTRUCTION_SITES, 2).length === 0) {
+            let neighborhood = source.room.lookAtArea(source.pos.y - 1, source.pos.x - 1,
+                                  source.pos.y + 1, source.pos.x + 1)
+            let ret = -1;
+            outer_for:
+            for (let y_ in neighborhood){
+                for (let x_ in neighborhood[y_]){
+                    let tile = neighborhood[y_][x_];
+                    let x = parseInt(x_)
+                    let y = parseInt(y_)
+                    if (!_.some(tile, {'type': 'terrain', 'terrain': 'wall'})){
+                        let neighborhood = source.room.lookAtArea(y - 1, x - 1, y + 1, x + 1)
+                        for (let y_ in neighborhood){
+                            for (let x_ in neighborhood[y_]){
+                                let tile = neighborhood[y_][x_];
+                                let x = parseInt(x_)
+                                let y = parseInt(y_)
+                                if (source.pos.x === x && source.pos.y === y ||
+                                    _.some(tile, {'type': 'terrain', 'terrain': 'wall'}) ||
+                                    source.pos.isNearTo(x,y)){
+                                        continue
+                                }
+                                if (!_.some(tile, s => s.type === 'structure' && is_stock(s))){
+                                    console.log('should create container at', source.room, x, y)
+                                    //ret = source.room.createConstructionSite(x, y, STRUCTURE_CONTAINER);
+                                    if (ret === OK){
+                                        console.log('constructing at', x, y, source.room.name)
+                                        break outer_for
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
 module.exports = {
+    update: update,
+
     is_stock: is_stock,
-    room_filled: room_filled,
     has_space: has_space,
     use_storage: use_storage,
     default_path_opts: default_path_opts,

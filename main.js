@@ -7,7 +7,18 @@ creep_ = require('creep')
 
 // ???! o var é necessário aqui, talvez devido a alterações no módulo durante a execução
 var spawn = require('spawn')
+
+// Alias usado onde existe outra variável com o nome spawn
 var spawn__ = spawn
+
+/*
+Para criar um global faça atribuição sem usar var ou let. De outra forma não é possível
+garantir que será global.
+Em JS, atribuir um valor a uma variável não declarada cria uma variável global.
+
+O script não é executado as is, então embora pareça que estamos no escopo global,
+podemos estar rodando dentro de uma função.
+*/
 
 PROFILING = false
 
@@ -24,31 +35,15 @@ STATE_NULL = '';
 STATE_DELIVERING = 'delivering';
 STATE_COLLECTING = 'collecting';
 
-/* Globals -
-    não são declarados pra garantir que sejam globais
-    quando o valor é atribuído sem a declaração, a variável se torna global
 
-    O script não é executado as is, então embora pareça que estamos no escopo global,
-    podemos estar rodando dentro de uma função
-
-    As declarações serão mantidas comentadas por clareza
-
-var container_of_source,
-    source_work_count,
-    maintenance_count,
-    source_container;
-var damaged, damaged_down, damaged_half, stock;
-var recharger_energy, recharger_tower_energy;
-var spawn_filled, fillers;
-
-var wanted , offered
-var nearFlag;
-var fighters_quota;
-var energy
-
-*/
-
-
+level_table = {
+    Spawn1: 9,
+    Spawn2: 9,
+    Spawn3: 9,
+    Spawn4: 9,
+    Spawn5: 9,
+    Spawn7: 9,
+}
 
 function getLine(strip){
     return getStack().split('\n')[(strip || 0) + 1].slice(4)
@@ -90,33 +85,42 @@ function tower_act(tower){
     }
     if (Memory.towers && Memory.towers[tower.id].damaged){
         let damaged_ = Game.getObjectById(Memory.towers[tower.id].damaged);
-        if (spawn.is_damaged(damaged_)){
+        /* Trata paredes diferente
+        if ( spawn.is_damaged(damaged_) ||
+                (damaged_.structureType !== STRUCTURE_WALL && 
+                    spawn.is_damaged_up(damaged_))){
+        */
+        if (spawn.is_damaged_up(damaged_)){
+            repair_checklist.push(damaged_.id)
             tower.repair(damaged_);
             return
         } else {
             delete Memory.towers[tower.id].damaged
         }
     }
-    if (spawn.damaged_half.length){
-        let damaged_half_ = tower.pos.findClosestByRange(spawn.damaged_half);
-        if (damaged_half_){
-            tower.repair(damaged_half_);
-            Memory.towers[tower.id].damaged = damaged_half_.id
+    let damaged = spawn.damaged_down().slice(0)
+    damaged = damaged.filter(s => s.room.name === tower.room.name)
+    if (!damaged.length){
+        damaged = spawn.damaged_half().slice(0)
+        damaged = damaged.filter(s => s.room.name === tower.room.name &&
+                                      repair_checklist.indexOf(s.id) === -1)
+    }
+    if (damaged.length){
+        damaged = tower.pos.findClosestByRange(damaged);
+        if (damaged){
+            repair_checklist.push(damaged.id)
+            tower.repair(damaged);
+            Memory.towers[tower.id].damaged = damaged.id
             return;
         }
     }
-}
-
-spawn_to_link = {
-    Spawn1: '57b81dcd2aaf9f94430da26f',
-    Spawn2: '57c29e26d31a5f1d6767fdde',
 }
 
 function update_stock(){
     let stock_ = find(FIND_STRUCTURES, {
         filter: creep_.is_stock,
     });
-    stock = stock_.filter(spawn.my_rooms);
+    stock = stock_.filter(spawn.my_rooms)
     Memory.stock_expires = Game.time + 50
 }
 console.log('reboot')
@@ -127,20 +131,23 @@ if (PROFILING){
       profiler.wrap(main_loop)
     }
 } else {
-    main_loop()
+    module.exports.loop = main_loop
 }
 
 function main_loop () {
 
-    energy = undefined;
-    healer.update();
-    claimer.update();
-    spawn.update();
+    energy = undefined
+    repair_checklist = []
+    healer.update()
+    claimer.update()
+    spawn.update()
+    creep_.update()
 
     if (Memory.stock_expires < Game.time){
         console.log('update_stock')
         update_stock()
     }
+    stock = stock.filter(s => Game.getObjectById(s.id))
     /*
     if (memory.upgraders === undefined){
         memory.upgraders = {}
@@ -169,88 +176,10 @@ function main_loop () {
                Spawn2: 0,
                Spawn3: 0,
                Spawn4: 0,
+               Spawn5: 0,
+               Spawn7: 0,
     };
-    wanted = {};
-    offered = {};
-    recharger_tower_energy = {};
     let room = Game.rooms['W39S59']
-    let spawns = ['Spawn1',
-                  'Spawn2',
-                  'Spawn3',
-                  'Spawn4']
-    spawn_filled = {}
-    tower_filled = {}
-    link_filled = {}
-    let renewing = {}
-
-    for (let i in spawns){
-        let spawn = spawns[i]
-        if (!Game.spawns[spawn]){
-            continue
-        }
-        let room = Game.spawns[spawn].room;
-        if (Memory.to_visit === undefined){
-            Memory.to_visit = {}
-        }
-        if (Memory.room_filled === undefined){
-            Memory.room_filled = {}
-        }
-        if (Memory.to_visit[spawn] === undefined){
-            Memory.to_visit[spawn] = []
-        }
-        if (Memory.room_filled[spawn] === undefined){
-            Memory.room_filled[spawn] = {}
-        }
-        spawn_filled[spawn] = room.energyAvailable >= 0.85 * room.energyCapacityAvailable;
-        tower_filled[spawn] = true;
-        link_filled[spawn] = true;
-        let towers = room.find(FIND_MY_STRUCTURES, {
-            filter: s => s.structureType === STRUCTURE_TOWER
-        })
-        if (towers.length && towers[0]){
-            for (let i in towers){
-                let tower = towers[i]
-                if (tower.energy < tower.energyCapacity - 100){
-                    tower_filled[spawn] = false
-                    break
-                }
-            }
-        }
-        let link = Game.getObjectById(spawn_to_link[spawn])
-        if (link && link.energy < 650){
-            link_filled[spawn] = false;
-        }
-
-        room_filled_transition = {}
-        room_filled_transition[spawn] = (creep_.room_filled(spawn) && 1 || 0) - (Memory.room_filled[spawn] && 1 || 0)
-        Memory.room_filled[spawn] = creep_.room_filled(spawn)
-        room_filled_transition[spawn]
-
-        let spawn_ = Game.spawns[spawn]
-        if (!spawn_.spawning){
-            let near = spawn_.pos.findInRange(FIND_MY_CREEPS, 1)
-            if (near.length && near[0] !== undefined){
-                for (let i in near){
-                    if (near[i] && spawn__.sum_cost(near[i].body) > 900){
-                        spawn_.renewCreep(near[i])
-                    }
-                }
-            }
-
-            renewing[spawn] = Game.getObjectById(Memory.renewing[spawn])
-            if (renewing[spawn] && !renewing[spawn].has(CLAIM)){
-                // console.log('renewing', renewing[spawn].name)
-                let spawn_ = Game.spawns[spawn]
-                if (!renewing[spawn].pos.isNearTo(spawn_)){
-                    renewing[spawn].moveTo(spawn_)
-                }
-                spawn_.renewCreep(renewing[spawn])
-                if (renewing[spawn].ticksToLive >= 1400){
-                    delete Memory.renewing[spawn]
-                }
-            }
-        }
-    }
 
     let towers = _.filter(Game.structures, s => s.structureType === STRUCTURE_TOWER);
     for (let key in towers) {
@@ -271,16 +200,32 @@ function main_loop () {
         if ((link.pos.x === 30 && link.pos.y === 12) ||
             (link.pos.x === 30 && link.pos.y === 11) ||
             (link.pos.x === 14 && link.pos.y === 8) ||
-            (link.pos.x === 35 && link.pos.y === 8) ||
+            (link.pos.x === 41 && link.pos.y === 29) ||
+            (link.pos.x === 47 && link.pos.y === 20) ||
+            (link.pos.x === 3 && link.pos.y === 20) ||
+            (link.pos.x === 31 && link.pos.y === 46) ||
+            (link.pos.x === 41 && link.pos.y === 11) ||
+            (link.pos.x === 17 && link.pos.y === 23) ||
+            (link.pos.x === 2 && link.pos.y === 10) ||
+            (link.pos.x === 46 && link.pos.y === 11) ||
+            (link.pos.x === 24 && link.pos.y === 47) ||
+            (link.pos.x === 6 && link.pos.y === 36) ||
+            (link.pos.x === 43 && link.pos.y === 10) ||
+            (link.pos.x === 10 && link.pos.y === 4) ||
+            (link.pos.x === 37 && link.pos.y === 7) ||
             (link.pos.x === 26 && link.pos.y === 16)){
             sinks[link.room.name].push(link);
         } else if ((link.pos.x === 3 && link.pos.y === 17) ||
                    (link.pos.x === 11 && link.pos.y === 13) ||
+                   (link.pos.x === 26 && link.pos.y === 43) ||
+                   (link.pos.x === 27 && link.pos.y === 9) ||
+                   (link.pos.x === 15 && link.pos.y === 17) ||
                    (link.pos.x === 20 && link.pos.y === 38)){
             fountain[link.room.name] = link;
 
         }
     }
+
     let fountain_busy = []
     for (let key in sinks){
         let fountain_ = fountain[key]
@@ -297,92 +242,12 @@ function main_loop () {
     }
 
 
-    source_work_count = {};
-    /*
-    source_work_count = Memory.source_work_count;
-    if (!source_work_count){
-        source_work_count = {}
-        Memory.source_work_count = source_work_count;
-    } else {
-        let keys = Object.keys(source_work_count);
-        for (let key in keys){
-            if (Object.keys(Game.creeps).indexOf(source_work_count[key]) === -1){
-                delete source_work_count[key];
-            }
-        }
-        Memory.source_work_count = source_work_count;
-    }
-    */
-    container_of_source = {};
-    source_container = [];
-    let sources = find(FIND_SOURCES, {
-        filter: spawn.my_rooms,
-    });
-    for (let key in sources){
-        let source = sources[key];
-        let container = source.pos.findInRange(FIND_STRUCTURES, 2,{
-            filter: creep_.is_stock
-        });
-        if (source.id === '579fa9050700be0674d2ea49'){
-            continue
-        }
-        if (container.length && container[0] !== undefined){
-            for (let i in container){
-                if (container[i].structureType === STRUCTURE_STORAGE &&
-                        !creep_.use_storage(container[i])){
-                    container.splice(i,1)
-                }
-            }
-
-            if (Memory.unwanted_structures !== undefined){
-                container = container.filter(s => Memory.unwanted_structures.indexOf(s.id) === -1)
-            }
-            container_of_source[source.id] = container
-            source_container = source_container.concat(container)
-        }
-        if (!_.some(container, creep_.has_space) &&
-                container.length < 2 &&
-                source.pos.findInRange(FIND_MY_CONSTRUCTION_SITES, 2).length === 0) {
-            let neighborhood = source.room.lookAtArea(source.pos.y - 1, source.pos.x - 1,
-                                  source.pos.y + 1, source.pos.x + 1)
-            let ret = -1;
-            outer_for:
-            for (let y_ in neighborhood){
-                for (let x_ in neighborhood[y_]){
-                    let tile = neighborhood[y_][x_];
-                    let x = parseInt(x_)
-                    let y = parseInt(y_)
-                    if (!_.some(tile, {'type': 'terrain', 'terrain': 'wall'})){
-                        let neighborhood = source.room.lookAtArea(y - 1, x - 1, y + 1, x + 1)
-                        for (let y_ in neighborhood){
-                            for (let x_ in neighborhood[y_]){
-                                let tile = neighborhood[y_][x_];
-                                let x = parseInt(x_)
-                                let y = parseInt(y_)
-                                if (source.pos.x === x && source.pos.y === y ||
-                                    _.some(tile, {'type': 'terrain', 'terrain': 'wall'}) ||
-                                    source.pos.isNearTo(x,y)){
-                                        continue
-                                }
-                                if (!_.some(tile, s => s.type === 'structure' && creep_.is_stock(s))){
-                                    ret = source.room.createConstructionSite(x, y, STRUCTURE_CONTAINER);
-                                    if (ret === OK){
-                                        console.log('constructing at', x, y)
-                                        break outer_for
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
 
     room1 = Game.rooms['W39S59'];
     room2 = Game.rooms['W37S57'];
     room3 = Game.rooms['W36S57'];
     room4 = Game.rooms['W35S58'];
+    room5 = Game.rooms['W34S59'];
     /*
     if (room1 && (Game.time % 50 === 2)){
         outer_for:
@@ -521,11 +386,13 @@ function main_loop () {
     room.createConstructionSite(19, 9, STRUCTURE_EXTENSION);
     room.createConstructionSite(19, 5, STRUCTURE_EXTENSION);
     */
+    if (room5){
+        room5.createConstructionSite(31, 16, STRUCTURE_TOWER);
+    }
 
 
-    for (let key in  Game.creeps){
+    for (let key in Game.creeps){
         let creep = Game.creeps[key];
-        let state = creep.memory.state;
 
         if (!creep.id){
             continue
@@ -542,21 +409,7 @@ function main_loop () {
             continue
         }
         let spawn_ = Game.spawns[creep.memory.spawn]
-        if (creep === renewing[spawn_.name]){
-            continue
-        }
-        if (creep.id && spawn.sum_cost(creep.body) > 900 &&
-                !creep.has(CLAIM) &&
-                creep.ticksToLive < 350 &&
-                !renewing[spawn_.name] &&
-                creep_.room_filled(creep.memory.spawn)){
-            console.log('renewing', creep.name)
-            if (!creep.pos.isNearTo(spawn_)){
-                creep.moveTo(spawn_)
-            }
-            spawn_.renewCreep(creep)
-            Memory.renewing[spawn_.name] = creep.id
-            renewing[spawn_.name] = creep
+        if (creep.renewing()){
             continue
         }
 
@@ -565,21 +418,19 @@ function main_loop () {
         }
         if (creep.memory.role === 'carrier' ||
             creep.memory.role === 'worker' ){
-            if ((!state || state === STATE_COLLECTING) &&
+            if ((!creep.memory.state || creep.memory.state === STATE_COLLECTING) &&
                     creep.carry[RESOURCE_ENERGY] >= (0.75 * creep.carryCapacity)){
-                state = STATE_DELIVERING;
-                creep.memory.state = state
-            } else if (state === STATE_DELIVERING &&
-                        ((creep.carry[RESOURCE_ENERGY] === 0))){
+                creep.memory.state = STATE_DELIVERING
+            } else if (creep.memory.state === STATE_DELIVERING &&
+                        creep.carry[RESOURCE_ENERGY] === 0){
                         //((creep.carry[RESOURCE_ENERGY] === 0) ||
                             //(creep.memory.stock_done &&
                             //    creep.carry[RESOURCE_ENERGY] < (0.1 * creep.carryCapacity)))){
                 //delete creep.memory.stock_done;
-                state = STATE_COLLECTING;
-                creep.memory.state = state
+                creep.memory.state = STATE_COLLECTING
             }
         } else {
-            state = STATE_COLLECTING;
+            creep.memory.state = STATE_COLLECTING;
         }
         if (creep.memory.role === 'fighter' ){
             creep.fight(creep);
@@ -597,7 +448,31 @@ function main_loop () {
         } else if (creep.memory.role === 'visitor' ){
             if (creep.memory.target_room){
                 if (creep.pos.roomName !== creep.memory.target_room){
-                    creep.moveTo(new RoomPosition(25,25,creep.memory.target_room));
+                    if (creep.memory.target_room === 'W45S59' ||
+                            creep.memory.target_room === 'W45S60'){
+                        let path = ['W40S59',
+                                    'W40S60',
+                                    'W41S60',
+                                    'W42S60',
+                                    'W43S60',
+                                    'W44S60',
+                                    'W45S60',
+                                    'W45S59',
+                                    ]
+                        creep.move_by_room_path(path)
+                    } else if (creep.memory.target_room === 'W44S59'){
+                        let path = ['W40S59',
+                                    'W40S60',
+                                    'W41S60',
+                                    'W42S60',
+                                    'W43S60',
+                                    'W44S60',
+                                    'W44S59',
+                                    ]
+                        creep.move_by_room_path(path)
+                    } else {
+                        creep.moveTo(new RoomPosition(25,25,creep.memory.target_room));
+                    }
                 } else {
                     Memory.to_visit[creep.memory.spawn].splice(
                             Memory.to_visit[creep.memory.spawn].indexOf(creep.memory.target_room), 1)
@@ -618,14 +493,14 @@ function main_loop () {
             ret = creep.idle()
         }
 
-        if (!state || state === STATE_COLLECTING ){
+        if (!creep.memory.state || creep.memory.state === STATE_COLLECTING ){
             if (ret){
                 ret = creep.procure()
             }
             if (ret){
                 ret = creep.idle()
             }
-        } else if ( state === STATE_DELIVERING ){
+        } else if ( creep.memory.state === STATE_DELIVERING ){
 
             /*
             if (ret){
@@ -636,7 +511,10 @@ function main_loop () {
             }
             */
             if (ret){
-                ret = creep.upgrade(2, 'W35S58')
+                ret = creep.upgrade(2, 'W33S58')
+            }
+            if (ret){
+                ret = creep.upgrade(2, 'W34S58')
             }
             if (ret){
                 ret = creep.upgrade(2)
@@ -654,7 +532,7 @@ function main_loop () {
                 ret &= creep.maintenance_near()
             }
             if (ret){
-                ret = creep.upgrade(10)
+                ret = creep.upgrade(level_table[creep.memory.spawn])
             }
             if (ret){
                 ret = creep.recharge()
@@ -669,7 +547,6 @@ function main_loop () {
                 ret = creep.deposit()
             }
             if (ret){
-                // console.log('' + creep.name + ' in idle delivering')
                 ret = creep.idle()
             }
         }
@@ -678,7 +555,16 @@ function main_loop () {
     for (let name in Game.spawns){
         Game.spawns[name].act();
     }
-
+    
+    /*
+    let dead = _.difference(_.keys(Memory.creeps), _.keys(Game.creeps))
+    for (let i in dead){
+        console.log(dead[i], 'the', Memory.creeps[dead[i]].role, 'died')
+        delete Memory.creeps[dead[i]]
+    }
+    */
+    
+    spawn.report()
     console.log('' + Object.keys(Game.creeps).length +
                 //(role && (' s' + role) || '   ') +
                 ' w' + _.sum(_.values(_.mapValues(spawn.counters, 'worker'))) +
@@ -689,9 +575,11 @@ function main_loop () {
                 ' he' + _.sum(_.values(_.mapValues(spawn.counters, 'healer'))) +
                 ' cl' + _.sum(_.values(_.mapValues(spawn.counters, 'claimer'))) +
                 ' v' + _.sum(_.values(_.mapValues(spawn.counters, 'visitor'))) +
-                ' 1' + ((creep_.room_filled('Spawn1') && 'F') || '_') + (spawn.counters['Spawn1'].idle + 'i') +
-                ' 2' + ((creep_.room_filled('Spawn2') && 'F') || '_') + (spawn.counters['Spawn2'].idle + 'i') +
-                ' 3' + ((creep_.room_filled('Spawn3') && 'F') || '_') + (spawn.counters['Spawn3'].idle + 'i') +
-                ' 4' + ((creep_.room_filled('Spawn4') && 'F') || '_') + (spawn.counters['Spawn4'].idle + 'i') +
-                ' ' + Game.cpu.getUsed().toFixed(2));
+                ' 1' + ((spawn.room_filled('Spawn1') && 'F') || '_') + ' i' + spawn.counters['Spawn1'].idle + ' id' + spawn.counters['Spawn1'].idle_delivering + ';' +
+                ' 2' + ((spawn.room_filled('Spawn2') && 'F') || '_') + ' i' + spawn.counters['Spawn2'].idle + ' id' + spawn.counters['Spawn2'].idle_delivering + ';' +
+                ' 3' + ((spawn.room_filled('Spawn3') && 'F') || '_') + ' i' + spawn.counters['Spawn3'].idle + ' id' + spawn.counters['Spawn3'].idle_delivering + ';' +
+                ' 4' + ((spawn.room_filled('Spawn4') && 'F') || '_') + ' i' + spawn.counters['Spawn4'].idle + ' id' + spawn.counters['Spawn4'].idle_delivering + ';' +
+                ' 5' + ((spawn.room_filled('Spawn5') && 'F') || '_') + ' i' + spawn.counters['Spawn5'].idle + ' id' + spawn.counters['Spawn5'].idle_delivering + ';' +
+                ' 7' + ((spawn.room_filled('Spawn7') && 'F') || '_') + ' i' + spawn.counters['Spawn7'].idle + ' id' + spawn.counters['Spawn7'].idle_delivering + ';' +
+                ' ' + Game.cpu.getUsed().toFixed(2))
 }

@@ -1,37 +1,48 @@
 /*
- * Module code goes here. Use 'module.exports' to export things:
- * module.exports.thing = 'a thing';
- *
- * You can import it from another modules like this:
- * var mod = require('claimer');
- * mod.thing == 'a thing'; // true
+ * Gotta claim them all!
  */
+
+tables = require('tables')
+
 // var target_controller;
 reserved = false;
 attack = false;
 claim = false;
 done = false;
 spawn = false;
-const target = 'W35S58'
-
-spawn_table = {
-    Spawn1: ['W38S59',
-             'W39S58',
-             'W37S59',
-             'W38S58',],
-    Spawn2: ['W37S56',
-             'W37S58',
-             'W38S56',
-             'W37S55'],
-    Spawn3: ['W36S58'],
-    Spawn4: ['W35S59'],
-}
+const target = ''
 
 Creep.prototype.claimer_action = function(){
-    let table = spawn_table[this.memory.spawn]
+    let table = tables.claim_rooms()[this.memory.spawn]
     let target_ = this.memory.target_room
     let room
-    if (target_ === undefined){
+    if (target && target_ == target){
+        if (this.room.name !== target){
+            
+            this.moveTo(new RoomPosition(25,25,target))
+            // this.move_by_room_path(path)
+        } else {
+            // check for unreachable conde
+            console.log(target_, target, target_ == target)
+            if (done){
+                return;
+            }
+            if (!this.pos.isNearTo(target_controller)){
+                this.moveTo(target_controller);
+            }
+            if (attack && this.body_[CLAIM] >= 5){
+                this.attackController(target_controller)
+            } else if (claim){
+                let ret = this.claimController(target_controller);
+                if (ret == ERR_GCL_NOT_ENOUGH){
+                    this.reserveController(target_controller);
+                }
+            }
+        }
+    } else if (target_ === undefined ||
+            (Game.rooms[target_] !== undefined
+                && Game.rooms[target_].controller.my) ||
+            table.indexOf(target_) === -1){
         target_ = table[0]
         room = Game.rooms[target_];
         let i = 0
@@ -50,26 +61,6 @@ Creep.prototype.claimer_action = function(){
         } else {
             this.memory.target_room = target_
         }
-    } else if (target_ == target){
-        console.log(target_, target, target_ == target)
-        if (!Game.rooms[target]){
-            this.moveTo(new RoomPosition(25,25,target));
-            return
-        }
-        if (done){
-            return;
-        }
-        if (!this.pos.isNearTo(target_controller)){
-            this.moveTo(target_controller);
-        }
-        if (attack && this.body_[CLAIM] >= 5){
-            this.attackController(target_controller)
-        } else if (claim){
-            let ret = this.claimController(target_controller);
-            if (ret == ERR_GCL_NOT_ENOUGH){
-                this.reserveController(target_controller);
-            }
-        }
     } else {
         room = Game.rooms[target_]
     }
@@ -83,8 +74,11 @@ Creep.prototype.claimer_action = function(){
 }
 
 module.exports = {
-    done: function() {return done;},
-    spawn: function() {return spawn && !done;},
+    done: () => done,
+    spawn: (name) => name === 'Spawn5' &&
+                    Game.creeps[Memory.conqueror] === undefined &&
+                    spawn &&
+                    !done,
     target: target,
 
     update: function() {

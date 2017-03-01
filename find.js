@@ -1,10 +1,5 @@
 /*
- * Module code goes here. Use 'module.exports' to export things:
- * module.exports.thing = 'a thing';
- *
- * You can import it from another modules like this:
- * var mod = require('find');
- * mod.thing == 'a thing'; // true
+ * Bleh that was way too easy
  */
 
 module.exports = function find(type, opts){

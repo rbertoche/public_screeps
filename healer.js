@@ -1,6 +1,7 @@
 /**
- * The Guard hasn't been improved in a while, I've mostly just moved on to archers for now. I'll come back and
- * work on this one later
+ * "The Guard hasn't been improved in a while, I've mostly just moved on to archers for now. I'll come back and
+ * work on this one later"
+ * Thus spake Zaratustra
  * @param creep
  */
 
